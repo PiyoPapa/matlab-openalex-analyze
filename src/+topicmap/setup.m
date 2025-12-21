@@ -1,11 +1,17 @@
-function cfg = topicmap.setup(varargin)
+function cfg = setup(varargin)
+%TOPICMAP.SETUP  Resolve hub roots, add paths, create run directory, return cfg.
     p = inputParser;
     addParameter(p,"HubRoot","",@(x)ischar(x)||isstring(x));
     parse(p,varargin{:});
     hubArg = string(p.Results.HubRoot);
 
-    repoRoot = fileparts(mfilename("fullpath"));
-    autoHub  = string(fileparts(repoRoot));
+    % mfilename("fullpath") points to .../openalex-topic-map/src/+topicmap/setup.m
+    % We want repoRoot = .../openalex-topic-map
+    thisFile = mfilename("fullpath");
+    pkgDir   = fileparts(thisFile);      % .../src/+topicmap
+    srcDir   = fileparts(pkgDir);        % .../src
+    repoRoot = fileparts(srcDir);        % .../openalex-topic-map
+    autoHub  = string(fileparts(repoRoot)); % .../github
 
     envHub = string(getenv("OPENALEX_MATLAB_HUB"));
     if strlength(hubArg) > 0
@@ -18,11 +24,6 @@ function cfg = topicmap.setup(varargin)
 
     pipelineRoot  = fullfile(hubRoot,"matlab-openalex-pipeline");
     normalizeRoot = fullfile(hubRoot,"matlab-openalex-normalize");
-
-    assert(isfolder(fullfile(pipelineRoot,"src")), ...
-        "Pipeline not found: %s", pipelineRoot);
-    assert(isfolder(fullfile(normalizeRoot,"src")), ...
-        "Normalize not found: %s", normalizeRoot);
 
     cfg.repoRoot = repoRoot;
     cfg.hubRoot  = hubRoot;
