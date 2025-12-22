@@ -41,4 +41,23 @@ function cfg = setup(varargin)
 
     cfg.seed = 1;
     cfg.env  = struct(); % env.checkで埋める
+
+    % ---------------------------
+    % Inputs / text policy (topic map)
+    % ---------------------------
+    % demo_02 will start from pipeline JSONL (not normalize CSV).
+    cfg.input = struct();
+    cfg.input.pipelineJsonl = "";  % user sets this (or demo_02 sets)
+
+    % Text policy for embeddings
+    cfg.text = struct();
+    cfg.text.policy = "title+abstract";   % fixed decision (A)
+    cfg.text.maxChars = 6000;             % safety cap per document
+
+    % ---------------------------
+    % Sample defaults (demo_01)
+    % ---------------------------
+    cfg.sample = struct();
+    cfg.sample.worksCsv = "";        % optional for demo_01
+    cfg.sample.embeddingMat = "";    % optional for demo_01
 end

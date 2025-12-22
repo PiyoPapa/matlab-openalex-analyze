@@ -40,8 +40,8 @@ function cfg = env_check(cfg)
         recs(end+1)  = "Clone matlab-openalex-pipeline under hubRoot and re-run topicmap.env_check().";
     end
     if ~hasNormalize
-        warns(end+1) = "Normalize repo not found (expected <hub>/matlab-openalex-normalize/src). End-to-end normalization will be unavailable.";
-        recs(end+1)  = "Clone matlab-openalex-normalize under hubRoot and re-run topicmap.env_check().";
+        warns(end+1) = "Normalize repo not found (expected <hub>/matlab-openalex-normalize/src). This is OK for demo_02 (JSONL->map).";
+        recs(end+1)  = "Optional: clone matlab-openalex-normalize only if you want CSV-based workflows.";
     end
 
     % ---------- Required toolboxes (minimal demo) ----------
@@ -146,6 +146,23 @@ function cfg = env_check(cfg)
         recs(end+1)  = "Add cfg.sample.* defaults in topicmap.setup() and ship minimal files under data_sample/.";
     end
 
+    % ---------- Pipeline JSONL input hint (for demo_02) ----------
+    hasPipelineJsonl = false;
+    if isfield(cfg,"input") && isstruct(cfg.input) && isfield(cfg.input,"pipelineJsonl")
+        pj = string(cfg.input.pipelineJsonl);
+        if strlength(pj) > 0
+            hasPipelineJsonl = isfile(pj);
+            if ~hasPipelineJsonl
+                warns(end+1) = "cfg.input.pipelineJsonl is set but file does not exist. demo_02 will fail until you point to a pipeline JSONL.";
+                recs(end+1)  = "Set cfg.input.pipelineJsonl to a pipeline output JSONL (works JSONL).";
+            end
+        else
+            recs(end+1) = "For demo_02: set cfg.input.pipelineJsonl to a pipeline output JSONL (works JSONL).";
+        end
+    else
+        recs(end+1) = "For demo_02: add cfg.input.pipelineJsonl in topicmap.setup() (already supported) and set it to a pipeline JSONL.";
+    end
+
     % ---------- Populate cfg.env ----------
     cfg.env = struct();
     % Doctor-style summary
@@ -171,8 +188,11 @@ function cfg = env_check(cfg)
     cfg.env.warnings = warns;
     cfg.env.recommendations = unique(recs);
 
-    % optionalOk = all optional things needed for "recommended experience"
+    % optionalOk (legacy): keep behavior for demo_01 "recommended experience"
     cfg.env.optionalOk = cfg.env.hasSampleWorks && (cfg.env.hasSampleEmbed || cfg.env.hasBERT);
+    % new: optional readiness by demo
+    cfg.env.optionalOk_demo01 = cfg.env.optionalOk;
+    cfg.env.optionalOk_demo02 = cfg.env.hasPipelineJsonl && cfg.env.hasBERT;
 
     % Print warnings in a concise way (do not spam).
     if ~isempty(warns)
