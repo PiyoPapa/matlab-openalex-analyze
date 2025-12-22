@@ -1,9 +1,8 @@
-What:
-  Embedding-based topic mapping of OpenAlex abstracts (BERT + UMAP + clustering)
+This folder contains small OpenAlex standard JSONL samples
+used only for development and demos.
 
-Input:
-  Normalized CSVs produced by matlab-openalex-normalize
-  (optionally precomputed embeddings)
+- Source: matlab-openalex-pipeline
+- Format: one work per line (*.standard.jsonl)
+- Size: trimmed (≤1000 works) for quick local execution
 
-Output:
-  2D topic maps + cluster labels for exploration and teaching
+Not intended for analysis quality evaluation.

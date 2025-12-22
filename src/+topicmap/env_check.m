@@ -119,6 +119,32 @@ function cfg = env_check(cfg)
         recs(end+1) = "Optional: Deep Learning Toolbox + Text Analytics Toolbox are needed for BERT-based embeddings.";
     end
 
+    % ---- Detect availability of a standard JSONL (one work per line) ----
+    % demo_02 gate: we only need at least one *.standard.jsonl reachable.
+    hasPipelineJsonl = false;
+    try
+        if isfolder(fullfile(cfg.repoRoot, "data_sample"))
+            d = dir(fullfile(cfg.repoRoot, "data_sample", "*.standard.jsonl"));
+            hasPipelineJsonl = ~isempty(d);
+        end
+        if ~hasPipelineJsonl && isfolder(cfg.runDir)
+            d = dir(fullfile(cfg.runDir, "*.standard.jsonl"));
+            hasPipelineJsonl = ~isempty(d);
+        end
+    catch
+        hasPipelineJsonl = false;
+    end
+
+    % ---- Explicit pipeline JSONL path (user-provided) ----
+    % IMPORTANT: define this BEFORE any logic references it (short-circuit bugs otherwise).
+    hasPipelineJsonlPath = false;
+    if isfield(cfg,"input") && isstruct(cfg.input) && isfield(cfg.input,"pipelineJsonl")
+        pj = string(cfg.input.pipelineJsonl);
+        if strlength(pj) > 0
+            hasPipelineJsonlPath = isfile(pj);
+        end
+    end
+
     % ---------- Sample data presence (optional but recommended) ----------
     hasSampleWorks = false;
     hasSampleEmbed = false;
@@ -130,8 +156,11 @@ function cfg = env_check(cfg)
                 recs(end+1)  = "Provide cfg.sample.worksCsv (e.g., data_sample/works_sample.csv) or generate one from pipeline/normalize outputs.";
             end
         else
-            warns(end+1) = "cfg.sample.worksCsv is not set. Provide a small sample dataset for a guaranteed first-run experience.";
-            recs(end+1)  = "Set cfg.sample.worksCsv in topicmap.setup() (recommended) or pass your own data path.";
+            % If demo_02 (JSONL -> text) is available, worksCsv is not required.
+            if ~(hasPipelineJsonl || hasPipelineJsonlPath)
+                warns(end+1) = "No input data configured: cfg.sample.worksCsv is not set and no pipeline JSONL is available. Provide at least one to run demos.";
+            end
+            recs(end+1)  = "Optional: set cfg.sample.worksCsv to support a CSV-based minimal demo (demo_01).";
         end
 
         if isfield(cfg.sample,"embeddingMat") && strlength(string(cfg.sample.embeddingMat))>0
@@ -147,12 +176,11 @@ function cfg = env_check(cfg)
     end
 
     % ---------- Pipeline JSONL input hint (for demo_02) ----------
-    hasPipelineJsonl = false;
+    % (Keep separate info: explicit user-provided path)
     if isfield(cfg,"input") && isstruct(cfg.input) && isfield(cfg.input,"pipelineJsonl")
         pj = string(cfg.input.pipelineJsonl);
         if strlength(pj) > 0
-            hasPipelineJsonl = isfile(pj);
-            if ~hasPipelineJsonl
+            if ~hasPipelineJsonlPath
                 warns(end+1) = "cfg.input.pipelineJsonl is set but file does not exist. demo_02 will fail until you point to a pipeline JSONL.";
                 recs(end+1)  = "Set cfg.input.pipelineJsonl to a pipeline output JSONL (works JSONL).";
             end
@@ -180,6 +208,8 @@ function cfg = env_check(cfg)
     cfg.env.hasDL       = hasDL;
     cfg.env.hasText     = hasText;
     cfg.env.hasBERT     = hasBERT;
+    cfg.env.hasPipelineJsonl = hasPipelineJsonl;
+    cfg.env.hasPipelineJsonlPath = hasPipelineJsonlPath;
 
     cfg.env.hasSampleWorks = hasSampleWorks;
     cfg.env.hasSampleEmbed = hasSampleEmbed;
@@ -192,7 +222,8 @@ function cfg = env_check(cfg)
     cfg.env.optionalOk = cfg.env.hasSampleWorks && (cfg.env.hasSampleEmbed || cfg.env.hasBERT);
     % new: optional readiness by demo
     cfg.env.optionalOk_demo01 = cfg.env.optionalOk;
-    cfg.env.optionalOk_demo02 = cfg.env.hasPipelineJsonl && cfg.env.hasBERT;
+    % demo_02 (current phase): JSONL -> text is doable without BERT
+    cfg.env.optionalOk_demo02 = cfg.env.hasPipelineJsonl || cfg.env.hasPipelineJsonlPath;
 
     % Print warnings in a concise way (do not spam).
     if ~isempty(warns)
