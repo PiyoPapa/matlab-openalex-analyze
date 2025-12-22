@@ -1,56 +1,76 @@
-function absText = reconstruct_abstract(abstract_inverted_index)
-%TOPICMAP.RECONSTRUCT_ABSTRACT Reconstruct abstract from OpenAlex inverted index.
+function absText = reconstruct_abstract(inv)
+%TOPICMAP.RECONSTRUCT_ABSTRACT
+% Reconstruct abstract text from OpenAlex abstract_inverted_index.
 %
-% absText = topicmap.reconstruct_abstract(idx)
-% idx is a struct: idx.(token) = [pos1 pos2 ...]
-% Returns reconstructed abstract as a single string.
+% absText = topicmap.reconstruct_abstract(inv)
+%
+% Design goals:
+% - Fail-safe: never throw for bad inputs
+% - Do NOT allocate by max(pos) (pos can be huge / sparse)
+% - Order by position only; ignore absolute gaps
+%
+% Input:
+%   inv : struct where each field is a token and value is numeric vector of positions
+%
+% Output:
+%   absText : string scalar ("" if missing/invalid)
 
-    if isempty(abstract_inverted_index)
-        absText = "";
+    absText = "";
+
+    % ---- Guard clauses ----
+    if nargin < 1 || isempty(inv) || ~isstruct(inv)
         return;
     end
-    if ~isstruct(abstract_inverted_index)
-        absText = "";
+
+    fns = fieldnames(inv);
+    if isempty(fns)
         return;
     end
 
-    tokens = string(fieldnames(abstract_inverted_index));
-    if isempty(tokens)
-        absText = "";
-        return;
-    end
-
-    % Collect (pos, token)
+    % ---- Collect (pos, token) pairs ----
     posAll = [];
     tokAll = strings(0,1);
 
-    for t = tokens.'
-        v = abstract_inverted_index.(t);
+    for i = 1:numel(fns)
+        tok = fns{i};
+        try
+            v = inv.(tok);
+        catch
+            continue;
+        end
+
         if isempty(v)
             continue;
         end
-        % v should be numeric vector
+
+        % Ensure numeric positions
+        if ~isnumeric(v)
+            continue;
+        end
+
         v = double(v(:));
+
+        % Keep only finite, non-negative positions
+        ok = isfinite(v) & v >= 0;
+        if ~any(ok)
+            continue;
+        end
+
+        v = floor(v(ok)); % OpenAlex positions are integers; be explicit
+
         posAll = [posAll; v]; %#ok<AGROW>
-        tokAll = [tokAll; repmat(t, numel(v), 1)]; %#ok<AGROW>
+        tokAll = [tokAll; repmat(string(tok), numel(v), 1)]; %#ok<AGROW>
     end
 
     if isempty(posAll)
-        absText = "";
         return;
     end
 
-    [posSorted, order] = sort(posAll);
-    tokSorted = tokAll(order);
+    % ---- Sort by position ----
+    [posSorted, idx] = sort(posAll); %#ok<ASGLU>
+    tokSorted = tokAll(idx);
 
-    % Place tokens at positions
-    maxPos = posSorted(end);
-    seq = strings(maxPos+1,1);
-    seq(:) = "";
-    seq(posSorted+1) = tokSorted;
-
-    % Fill gaps with empty, then join with spaces, then normalize whitespace
-    s = strjoin(seq, " ");
-    s = regexprep(s, "\s+", " ");
-    absText = strtrim(s);
+    % ---- Build text without sparse indexing ----
+    % We only care about order, not absolute position gaps
+    absText = strjoin(tokSorted, " ");
 end
