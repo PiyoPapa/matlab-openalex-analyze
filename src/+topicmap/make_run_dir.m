@@ -1,10 +1,7 @@
---- a/src/+topicmap/make_run_dir.m
-+++ b/src/+topicmap/make_run_dir.m
-@@
-+function runDir = make_run_dir(cfg, tag, varargin)
-+%TOPICMAP.MAKE_RUN_DIR Create a timestamped run folder under cfg.baseOutDir.
-+%
-+%   runDir = topicmap.make_run_dir(cfg, "demo03")
+function runDir = make_run_dir(cfg, tag, varargin)
+%TOPICMAP.MAKE_RUN_DIR Create a timestamped run folder under cfg.baseOutDir.
+%
+%   runDir = topicmap.make_run_dir(cfg, "demo03")
 %   runDir = topicmap.make_run_dir(cfg, "demo03", 'timestamp', datetime(...))
 %
 % Folder name: <YYYYMMDD_HHMMSS>_<tag>
