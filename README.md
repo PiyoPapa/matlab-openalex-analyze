@@ -43,7 +43,9 @@ This project is designed around the following principles:
 └─ examples/
    ├─ demo_01_cpu_minimal.mlx
    ├─ demo_02_from_pipeline_jsonl.mlx
-   └─ demo_03_semantic_topic_map.mlx
+   ├─ demo_03_semantic_topic_map.mlx
+   ├─ demo_04_hdbscan_child_clusters.mlx
+   └─ demo_05_hdbscan_vs_kmeans.mlx
 ```
 
 
@@ -150,8 +152,89 @@ These outputs are meant for:
 
 > demo_03 assumes demo_02 has already stabilized text quality and structure.  
 > It serves as a **semantic baseline**, not an optimized or final analytics endpoint.
- 
-> demo_03 assumes demo_02 has already stabilized text quality and structure.
+
+---
+
+### demo_04_hdbscan_child_clusters.mlx  (Density Diagnostic)
+
+**Purpose:**  
+Density-based diagnostic to test whether the semantic space contains
+statistically separable topic regions.
+
+**What this demo does**
+
+1. Reuses Transformer embeddings generated in `demo_03`
+2. Applies PCA-reduced embedding space for clustering
+3. Runs **HDBSCAN** to detect density-separated parent clusters
+4. Optionally attempts **child clustering** within each parent cluster
+5. Reports:
+   - number of detected clusters
+   - noise ratio
+   - stability under parameter sweeps
+
+**Key interpretation**
+
+- If HDBSCAN returns **a single cluster with high noise**,
+  the space should be interpreted as **continuous rather than discretely clustered**
+- This outcome is **diagnostic**, not a failure
+
+**What this demo intentionally does NOT do**
+
+- No forced partitioning
+- No semantic labeling
+- No assumption that clusters must exist
+
+**Outputs**
+
+- `demo04_hdbscan.csv`  
+  Cluster labels and noise assignment
+
+- `demo04_parent_representatives.csv` (if applicable)  
+  Representative papers per detected density cluster
+
+> demo_04 exists to answer a single question:  
+> **"Does the data *want* to be clustered?"**
+
+---
+
+### demo_05_hdbscan_vs_kmeans.mlx  (Diagnostic Comparison)
+
+**Purpose:**  
+Side-by-side comparison between:
+
+- **density-detected structure** (HDBSCAN)
+- **user-imposed summarization** (k-means)
+
+on the **same semantic embedding space**.
+
+**What this demo does**
+
+1. Reuses embeddings and UMAP coordinates from `demo_03`
+2. Runs HDBSCAN as a **structure detector**
+3. Runs k-means with a small K sweep as a **constructive summarization**
+4. Reports diagnostic metrics (e.g. mean silhouette)
+5. Visualizes both results on the same 2D UMAP map
+
+**Key interpretation**
+
+- A visually separable k-means partition does **not** imply
+  statistically stable topic separation
+- HDBSCAN returning a single cluster indicates
+  a **continuous semantic landscape**
+
+**Outputs**
+
+- `demo05_hdbscan.csv`  
+  Density-based diagnostic result
+
+- `demo05_kmeans_silhouette.csv`  
+  Silhouette scores across tested K values
+
+- `demo05_parallel_hdbscan_vs_kmeans_*.png`  
+  Side-by-side visualization
+
+> demo_05 is explicitly **diagnostic**, not prescriptive.  
+> It is designed to prevent over-interpretation of visually pleasing clusters.
 
 ---
 

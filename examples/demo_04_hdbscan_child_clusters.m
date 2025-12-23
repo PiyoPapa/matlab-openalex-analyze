@@ -125,7 +125,8 @@ fprintf("U2 ready: %s | size=%d x %d\n", embedMethod, size(U2,1), size(U2,2)); %
 % HDBSCAN should run on PCA space (Zpca), NOT UMAP.
 % We attempt common function names used by File Exchange implementations.
 minClusterSize = 20;
-minSamples = [];  % leave empty unless your implementation needs it
+minSamples = [];        % optional (minpts). keep [] to use implementation default
+hdbscanPolicy = "prefer_addon"; % {"prefer_addon","prefer_vendor","addon_only","vendor_only"}
 
 if isfield(cfg,"demo04") && isstruct(cfg.demo04)
     if isfield(cfg.demo04,"minClusterSize") && ~isempty(cfg.demo04.minClusterSize)
@@ -134,90 +135,15 @@ if isfield(cfg,"demo04") && isstruct(cfg.demo04)
     if isfield(cfg.demo04,"minSamples") && ~isempty(cfg.demo04.minSamples)
         minSamples = cfg.demo04.minSamples;
     end
+    if isfield(cfg.demo04,"hdbscanPolicy") && strlength(string(cfg.demo04.hdbscanPolicy))>0
+        hdbscanPolicy = string(cfg.demo04.hdbscanPolicy);
+    end
 end
 
 fprintf("Running parent HDBSCAN (min_cluster_size=%d) on PCA space...\n", minClusterSize); %[output:76ee2878]
-
-parent_label = [];
-parent_prob = [];
-
-% ---- Ensure HDBSCAN is on path (vendored File Exchange code) ----
-local_ensure_hdbscan_on_path(cfg);
-
-% ---- Try function variants (adjust this once you decide which FE package you ship) ----
-if exist("hdbscan","file") ~= 0
-    % Variant A: hdbscan(X, minPts) or hdbscan(X, minPts, Name,Value...)
-    try
-        if isempty(minSamples)
-            out = hdbscan(Zpca, minClusterSize);
-        else
-            out = hdbscan(Zpca, minClusterSize, "MinSamples", minSamples);
-        end
-
-        % Normalize possible outputs
-        if isstruct(out)
-            if isfield(out,"labels"), parent_label = out.labels; end
-            if isfield(out,"probabilities"), parent_prob = out.probabilities; end
-        elseif istable(out)
-            if ismember("labels", out.Properties.VariableNames), parent_label = out.labels; end
-            if ismember("probabilities", out.Properties.VariableNames), parent_prob = out.probabilities; end
-        elseif isnumeric(out)
-            parent_label = out;
-        end
-    catch
-        parent_label = [];
-    end
-end
-
-if isempty(parent_label) && exist("HDBSCAN","file") ~= 0 %[output:group:9eb221d8]
-    % Variant B: class-based API
-    try
-        % Jorsorokin-HDBSCAN (File Exchange) API:
-        %   clusterer = HDBSCAN(X);
-        %   clusterer.minpts = ...;
-        %   clusterer.minclustsize = ...;
-        %   clusterer.run_hdbscan();
-        %   labels = clusterer.labels;  % noise = 0
-        %   prob   = clusterer.P;       % membership probability
-        clusterer = HDBSCAN(Zpca);
-        if ~isempty(minSamples)
-            clusterer.minpts = double(minSamples);
-        else
-            % keep package default unless you want to tie it to minClusterSize:
-            % clusterer.minpts = max(2, floor(minClusterSize/2));
-        end
-        clusterer.minclustsize = double(minClusterSize);
-        clusterer.run_hdbscan(); %[output:2db075df]
-
-        if isprop(clusterer,"labels")
-            parent_label = clusterer.labels;
-        end
-        if isprop(clusterer,"P")
-            parent_prob = clusterer.P;
-        end
-    catch
-        parent_label = [];
-    end
-end %[output:group:9eb221d8]
-
-if isempty(parent_label)
-    w1 = string(which("hdbscan","-all"));
-    w2 = string(which("HDBSCAN","-all"));
-    msg = strjoin([ ...
-        "HDBSCAN implementation not found / not callable.", newline, ...
-        "Expected entry points: hdbscan(...) or HDBSCAN class.", newline, ...
-        newline, ...
-        "Diagnostic:", newline, ...
-        "  which hdbscan -all:", newline, ...
-        "    " + strjoin(w1, newline + "    "), newline, ...
-        "  which HDBSCAN -all:", newline, ...
-        "    " + strjoin(w2, newline + "    "), newline, ...
-        newline, ...
-        "Fix:", newline, ...
-        "  Vendor a File Exchange HDBSCAN package into the repo (e.g. third_party/hdbscan/) and rerun.", newline ...
-    ], "");
-    error("%s", msg);
-end
+% One entry point (avoid divergence): Step2 and Step2b use the same helper.
+[parent_label, parent_prob] = local_call_hdbscan(cfg, Zpca, minClusterSize, minSamples, N, hdbscanPolicy); %[output:126d38d1]
+ 
 
 parent_label = parent_label(:);
 if isempty(parent_prob)
@@ -236,8 +162,138 @@ noiseMask = (parent_label <= 0);
 nNoise = sum(noiseMask);
 nClust = numel(unique(parent_label(~noiseMask)));
 
-fprintf("Parent HDBSCAN done. clusters=%d | noise=%d (%.1f%%)\n", ... %[output:group:818fde2d] %[output:39fb4f73]
-    nClust, nNoise, 100*nNoise/N); %[output:group:818fde2d] %[output:39fb4f73]
+fprintf("Parent HDBSCAN done. clusters=%d | noise=%d (%.1f%%)\n", ... %[output:group:76ea631f] %[output:813d71ee]
+    nClust, nNoise, 100*nNoise/N); %[output:group:76ea631f] %[output:813d71ee]
+%% Step 3: Cluster representatives (works) for interpretation
+% Even if parent has only 1 cluster, we still produce "representatives"
+% so the downstream steps can reuse the same table schema.
+repPerCluster = 3;
+if isfield(cfg,"demo04") && isstruct(cfg.demo04) && isfield(cfg.demo04,"repPerCluster") && ~isempty(cfg.demo04.repPerCluster)
+    repPerCluster = double(cfg.demo04.repPerCluster);
+end
+
+% score = cosine distance to cluster centroid in PCA space (smaller is better)
+repCluster = [];
+repRank    = [];
+repRows    = [];
+repScore   = [];
+
+clusters = unique(parent_label(parent_label > 0));
+if isempty(clusters)
+    fprintf("No non-noise parent clusters. Skip reps.\n");
+else
+    for ci = 1:numel(clusters)
+        c = clusters(ci);
+        rows = find(parent_label == c);
+        if isempty(rows), continue; end
+
+        X = Zpca(rows,:);                 % [nc x p]
+        mu = mean(X,1);                   % centroid
+        % cosine distance to centroid
+        d = pdist2(X, mu, "cosine");      % [nc x 1]
+        [ds, ord] = sort(d, "ascend");
+        k = min(repPerCluster, numel(rows));
+        pick = rows(ord(1:k));
+
+        repCluster = [repCluster; repmat(double(c), k, 1)];
+        repRank    = [repRank;    (1:k)'];
+        repRows    = [repRows;    pick(:)];
+        repScore   = [repScore;   ds(1:k)];
+    end
+end
+
+%%
+if ~isempty(repRows) %[output:group:513122fe]
+    T_rep = table( ...
+        repCluster(:), repRank(:), string(meta.work_id(repRows(:))), double(meta.year(repRows(:))), ...
+        string(meta.title(repRows(:))), double(repScore(:)), ...
+        U2(repRows(:),1), U2(repRows(:),2), ...
+        'VariableNames', {'parent_cluster','rank','work_id','year','title','cosine_distance','x','y'});
+
+    outRepCsv = fullfile(cfg.runDir, "demo04_parent_representatives.csv");
+    writetable(T_rep, outRepCsv);
+    fprintf("Wrote: %s\n", outRepCsv); %[output:46f24531]
+end %[output:group:513122fe]
+
+%% Step 4: Child clustering within each parent cluster (HDBSCAN again)
+% This is the main point of demo04: parent may be coarse/1 cluster,
+% but child clusters may emerge within a large parent.
+doChild = true;
+if isfield(cfg,"demo04") && isstruct(cfg.demo04) && isfield(cfg.demo04,"doChild") && ~isempty(cfg.demo04.doChild)
+    doChild = logical(cfg.demo04.doChild);
+end
+
+if doChild && ~isempty(clusters) %[output:group:4701c832]
+    childMinClusterSize = max(5, floor(minClusterSize/2));
+    childMinSamples = []; % default: implementation default
+    if isfield(cfg,"demo04") && isstruct(cfg.demo04)
+        if isfield(cfg.demo04,"childMinClusterSize") && ~isempty(cfg.demo04.childMinClusterSize)
+            childMinClusterSize = double(cfg.demo04.childMinClusterSize);
+        end
+        if isfield(cfg.demo04,"childMinSamples") && ~isempty(cfg.demo04.childMinSamples)
+            childMinSamples = double(cfg.demo04.childMinSamples);
+        end
+    end
+
+    child_label = zeros(N,1);     % 0=noise/unassigned in child step
+    child_prob  = nan(N,1);
+
+    fprintf("Running child HDBSCAN within each parent cluster...\n"); %[output:7481c3fd]
+    fprintf("  child min_cluster_size=%d\n", childMinClusterSize); %[output:8632fcc4]
+
+    % Enumerate child clusters globally with stable IDs:
+    % child_id = parent*1000 + local_child_id (local_child_id must be >0)
+    for ci = 1:numel(clusters)
+        pc = clusters(ci);
+        rows = find(parent_label == pc);
+        if numel(rows) < childMinClusterSize
+            fprintf("  parent=%d skipped (size=%d < childMinClusterSize)\n", pc, numel(rows));
+            continue;
+        end
+
+        X = Zpca(rows,:);
+        [labLocal, probLocal] = local_call_hdbscan(cfg, X, childMinClusterSize, childMinSamples, size(X,1), hdbscanPolicy); %[output:7d6c4ec5]
+
+        labLocal = labLocal(:);
+        if isempty(probLocal)
+            probLocal = nan(size(labLocal));
+        else
+            probLocal = probLocal(:);
+        end
+
+        % normalize noise as <=0
+        localClusters = unique(labLocal(labLocal > 0));
+        fprintf("  parent=%d -> child clusters=%d | noise=%.1f%%\n", ... %[output:125905a8]
+            pc, numel(localClusters), 100*sum(labLocal<=0)/numel(labLocal)); %[output:125905a8]
+
+        for lj = 1:numel(localClusters)
+            lc = localClusters(lj);
+            gid = double(pc)*1000 + double(lc);
+            idxLocal = (labLocal == lc);
+            child_label(rows(idxLocal)) = gid;
+        end
+        child_prob(rows) = probLocal;
+    end
+    work_id_all = string(meta.work_id(:));
+    year_all    = double(meta.year(:));
+    x_all       = U2(:,1);
+    y_all       = U2(:,2);
+
+    T_child = table(work_id_all, year_all, parent_label, child_label, child_prob, x_all, y_all, ...
+        'VariableNames', {'work_id','year','parent_cluster','child_cluster','child_probability','x','y'});
+
+    outChildCsv = fullfile(cfg.runDir, "demo04_child_clusters.csv");
+    writetable(T_child, outChildCsv);
+    fprintf("Wrote: %s\n", outChildCsv); %[output:039285ca]
+
+    outChildMat = fullfile(cfg.runDir, "demo04_child_state.mat");
+    save(outChildMat, "demo03RunDir", "embMat", "pcaDims", "Zpca", "U2", "embedMethod", ...
+        "minClusterSize", "minSamples", "parent_label", "parent_prob", ...
+        "childMinClusterSize", "childMinSamples", "child_label", "child_prob", "-v7.3");
+    fprintf("Wrote: %s\n", outChildMat); %[output:3e7b57d3]
+else
+    fprintf("Child step skipped (doChild=%d or no parent clusters).\n", doChild);
+end %[output:group:4701c832]
 
 %% Step 2b: Quick stability check (min_cluster_size sensitivity)
 % Goal: reduce "it worked by accident" feeling by reporting sensitivity.
@@ -248,8 +304,8 @@ if isfield(cfg,"demo04") && isstruct(cfg.demo04) && isfield(cfg.demo04,"doStabil
     doStability = logical(cfg.demo04.doStability);
 end
 
-if doStability %[output:group:794d44f7]
-    fprintf("Running quick stability check (min_cluster_size sweep)...\n"); %[output:600ff19c]
+if doStability %[output:group:4f471d7e]
+    fprintf("Running quick stability check (min_cluster_size sweep)...\n"); %[output:68255206]
 
     sweepFactors = [0.8 1.0 1.2];
     if isfield(cfg,"demo04") && isstruct(cfg.demo04) && isfield(cfg.demo04,"sweepFactors") ...
@@ -280,7 +336,7 @@ if doStability %[output:group:794d44f7]
 
     for s = 1:numel(mcsGrid)
         mcs = mcsGrid(s);
-        [lab, prob] = local_call_hdbscan(Zpca, mcs, minSamples, N); %[output:5c057a45] %[output:78f947ce] %[output:6f426460]
+        [lab, prob] = local_call_hdbscan(cfg, Zpca, mcs, minSamples, N, hdbscanPolicy); %[output:8e5f78c4] %[output:94fc4679] %[output:3290096a]
         labelsAll{s} = lab;
 
         % Noise label differs by implementation:
@@ -292,7 +348,7 @@ if doStability %[output:group:794d44f7]
         nClustersAll(s) = nClustS;
         noisePctAll(s)  = 100 * nNoiseS / N;
 
-        fprintf("  mcs=%d -> clusters=%d | noise=%.1f%%\n", mcs, nClustS, noisePctAll(s)); %[output:46e8ef4a] %[output:53a9f83e] %[output:8188684c]
+        fprintf("  mcs=%d -> clusters=%d | noise=%.1f%%\n", mcs, nClustS, noisePctAll(s)); %[output:228ffc94] %[output:0e84fd68] %[output:57422d3f]
     end
 
     % co-clustering agreement between the baseline (closest to 1.0 factor) and others
@@ -323,8 +379,8 @@ if doStability %[output:group:794d44f7]
 
     outStabCsv = fullfile(cfg.runDir, "demo04_parent_stability.csv");
     writetable(T_stab, outStabCsv);
-    fprintf("Wrote: %s\n", outStabCsv); %[output:4d65613e]
-end %[output:group:794d44f7]
+    fprintf("Wrote: %s\n", outStabCsv); %[output:52c040d5]
+end %[output:group:4f471d7e]
 
 %% Save parent clustering results (for Step3+ and reproducibility)
 % Use legacy 'VariableNames' syntax and column normalization (R2025b-safe)
@@ -338,20 +394,38 @@ T_parent = table(work_id_all, year_all, parent_label, parent_prob, x_all, y_all,
 
 outParentCsv = fullfile(cfg.runDir, "demo04_parent_clusters.csv");
 writetable(T_parent, outParentCsv);
-fprintf("Wrote: %s\n", outParentCsv); %[output:7de27f78]
+fprintf("Wrote: %s\n", outParentCsv); %[output:91de20dc]
 
 outParentMat = fullfile(cfg.runDir, "demo04_parent_state.mat");
 save(outParentMat, "demo03RunDir", "embMat", "pcaDims", "Zpca", "U2", "embedMethod", ...
     "minClusterSize", "minSamples", "parent_label", "parent_prob", "-v7.3");
-fprintf("Wrote: %s\n", outParentMat); %[output:97d40db3]
+fprintf("Wrote: %s\n", outParentMat); %[output:98077be7]
 
-fprintf("demo04 Step0-2 complete. Next: Step3 reps, Step4 child HDBSCAN.\n"); %[output:6cec2da5]
+fprintf("demo04 Step0-2 complete. Next: Step3 reps, Step4 child HDBSCAN.\n"); %[output:7812b835]
 
 %% Local helper: attempt to add vendored HDBSCAN implementation to path
-function local_ensure_hdbscan_on_path(cfg)
-   if exist("hdbscan","file") ~= 0 || exist("HDBSCAN","file") ~= 0
-       return;
-   end
+function local_ensure_hdbscan_on_path(cfg, policy)
+    % Dependency resolution policy (explicit, reproducible):
+    % - "prefer_addon" (default): if Add-On provides HDBSCAN/hdbscan, use it; else try vendored copy.
+    % - "prefer_vendor": try vendored copy first; if missing, fall back to Add-On.
+    % - "addon_only": never touch vendored paths (fail if Add-On not installed).
+    % - "vendor_only": never use Add-On (require repo-local vendored copy).
+
+    if nargin < 2 || strlength(string(policy))==0
+        policy = "prefer_addon";
+    else
+        policy = string(policy);
+    end
+
+    hasAddon = (exist("hdbscan","file") ~= 0) || (exist("HDBSCAN","file") ~= 0);
+
+    if policy == "addon_only"
+        return; % rely solely on Add-On; caller will error if not callable
+    end
+    if policy == "prefer_addon" && hasAddon
+        return; % already available via Add-On/path
+    end
+
     % Pinpoint addpath policy (NO genpath):
     % Put the File Exchange package under:
     %   <repoRoot>/third_party/hdbscan/
@@ -387,10 +461,25 @@ function local_ensure_hdbscan_on_path(cfg)
 end
 
 %% Local helper: Call File Exchange HDBSCAN implementation robustly
-function [parent_label, parent_prob] = local_call_hdbscan(Zpca, minClusterSize, minSamples, N)
+function [parent_label, parent_prob] = local_call_hdbscan(cfg, Zpca, minClusterSize, minSamples, N, policy)
     parent_label = [];
     parent_prob  = [];
+    if nargin < 6 || strlength(string(policy))==0
+        policy = "prefer_addon";
+    else
+        policy = string(policy);
+    end
 
+    % Ensure dependency according to policy (may add vendored path)
+    local_ensure_hdbscan_on_path(cfg, policy);
+
+    % If vendor_only, reject Add-On-only availability
+    if policy == "vendor_only"
+        vroot = fullfile(cfg.repoRoot, "third_party", "hdbscan");
+        if ~isfolder(vroot)
+            error("HDBSCAN policy=vendor_only but vendored folder missing: %s", vroot);
+        end
+    end
     if exist("hdbscan","file") ~= 0
         try
             if isempty(minSamples)
@@ -429,7 +518,20 @@ function [parent_label, parent_prob] = local_call_hdbscan(Zpca, minClusterSize, 
     end
 
     if isempty(parent_label)
-        error("HDBSCAN implementation not found/callable. Expected hdbscan(...) or HDBSCAN class.");
+        w1 = string(which("hdbscan","-all"));
+        w2 = string(which("HDBSCAN","-all"));
+        msg = strjoin([ ...
+            "HDBSCAN implementation not found / not callable.", newline, ...
+            "Expected entry points: hdbscan(...) or HDBSCAN class.", newline, ...
+            "Policy: " + string(policy), newline, ...
+            newline, ...
+            "Diagnostic:", newline, ...
+            "  which hdbscan -all:", newline, ...
+            "    " + strjoin(w1, newline + "    "), newline, ...
+            "  which HDBSCAN -all:", newline, ...
+            "    " + strjoin(w2, newline + "    "), newline ...
+        ], "");
+        error("%s", msg);
     end
 
     parent_label = parent_label(:);
@@ -466,42 +568,63 @@ end
 %[output:76ee2878]
 %   data: {"dataType":"text","outputData":{"text":"Running parent HDBSCAN (min_cluster_size=20) on PCA space...\n","truncated":false}}
 %---
-%[output:2db075df]
-%   data: {"dataType":"text","outputData":{"text":"Training cluster hierarchy...\n\tData matrix size:\n\t\t1000 points x 50 dimensions\n\n\tMin # neighbors: 5\n\tMin cluster size: 20\n\tMin # of clusters: 1\n\tSkipping every 0 iteration\n\nTraining took 0.185 seconds\n","truncated":false}}
+%[output:126d38d1]
+%   data: {"dataType":"text","outputData":{"text":"Training cluster hierarchy...\n\tData matrix size:\n\t\t1000 points x 50 dimensions\n\n\tMin # neighbors: 5\n\tMin cluster size: 20\n\tMin # of clusters: 1\n\tSkipping every 0 iteration\n\nTraining took 0.117 seconds\n","truncated":false}}
 %---
-%[output:39fb4f73]
+%[output:813d71ee]
 %   data: {"dataType":"text","outputData":{"text":"Parent HDBSCAN done. clusters=1 | noise=369 (36.9%)\n","truncated":false}}
 %---
-%[output:600ff19c]
+%[output:46f24531]
+%   data: {"dataType":"text","outputData":{"text":"Wrote: D:\\workspace\\github\\openalex-topic-map\\runs\\20251223_155000\\demo04_parent_representatives.csv\n","truncated":false}}
+%---
+%[output:7481c3fd]
+%   data: {"dataType":"text","outputData":{"text":"Running child HDBSCAN within each parent cluster...\n","truncated":false}}
+%---
+%[output:8632fcc4]
+%   data: {"dataType":"text","outputData":{"text":"  child min_cluster_size=10\n","truncated":false}}
+%---
+%[output:7d6c4ec5]
+%   data: {"dataType":"text","outputData":{"text":"Training cluster hierarchy...\n\tData matrix size:\n\t\t631 points x 50 dimensions\n\n\tMin # neighbors: 5\n\tMin cluster size: 10\n\tMin # of clusters: 1\n\tSkipping every 0 iteration\n\nTraining took 0.037 seconds\n","truncated":false}}
+%---
+%[output:125905a8]
+%   data: {"dataType":"text","outputData":{"text":"  parent=1 -> child clusters=1 | noise=6.7%\n","truncated":false}}
+%---
+%[output:039285ca]
+%   data: {"dataType":"text","outputData":{"text":"Wrote: D:\\workspace\\github\\openalex-topic-map\\runs\\20251223_155000\\demo04_child_clusters.csv\n","truncated":false}}
+%---
+%[output:3e7b57d3]
+%   data: {"dataType":"text","outputData":{"text":"Wrote: D:\\workspace\\github\\openalex-topic-map\\runs\\20251223_155000\\demo04_child_state.mat\n","truncated":false}}
+%---
+%[output:68255206]
 %   data: {"dataType":"text","outputData":{"text":"Running quick stability check (min_cluster_size sweep)...\n","truncated":false}}
 %---
-%[output:5c057a45]
-%   data: {"dataType":"text","outputData":{"text":"Training cluster hierarchy...\n\tData matrix size:\n\t\t1000 points x 50 dimensions\n\n\tMin # neighbors: 5\n\tMin cluster size: 16\n\tMin # of clusters: 1\n\tSkipping every 0 iteration\n\nTraining took 0.137 seconds\n","truncated":false}}
+%[output:8e5f78c4]
+%   data: {"dataType":"text","outputData":{"text":"Training cluster hierarchy...\n\tData matrix size:\n\t\t1000 points x 50 dimensions\n\n\tMin # neighbors: 5\n\tMin cluster size: 16\n\tMin # of clusters: 1\n\tSkipping every 0 iteration\n\nTraining took 0.074 seconds\n","truncated":false}}
 %---
-%[output:46e8ef4a]
-%   data: {"dataType":"text","outputData":{"text":"  mcs=16 -> clusters=1 | noise=36.9%n","truncated":false}}
+%[output:228ffc94]
+%   data: {"dataType":"text","outputData":{"text":"  mcs=16 -> clusters=1 | noise=36.9%\n","truncated":false}}
 %---
-%[output:78f947ce]
-%   data: {"dataType":"text","outputData":{"text":"Training cluster hierarchy...\n\tData matrix size:\n\t\t1000 points x 50 dimensions\n\n\tMin # neighbors: 5\n\tMin cluster size: 20\n\tMin # of clusters: 1\n\tSkipping every 0 iteration\n\nTraining took 0.068 seconds\n","truncated":false}}
+%[output:94fc4679]
+%   data: {"dataType":"text","outputData":{"text":"Training cluster hierarchy...\n\tData matrix size:\n\t\t1000 points x 50 dimensions\n\n\tMin # neighbors: 5\n\tMin cluster size: 20\n\tMin # of clusters: 1\n\tSkipping every 0 iteration\n\nTraining took 0.077 seconds\n","truncated":false}}
 %---
-%[output:53a9f83e]
-%   data: {"dataType":"text","outputData":{"text":"  mcs=20 -> clusters=1 | noise=36.9%n","truncated":false}}
+%[output:0e84fd68]
+%   data: {"dataType":"text","outputData":{"text":"  mcs=20 -> clusters=1 | noise=36.9%\n","truncated":false}}
 %---
-%[output:6f426460]
-%   data: {"dataType":"text","outputData":{"text":"Training cluster hierarchy...\n\tData matrix size:\n\t\t1000 points x 50 dimensions\n\n\tMin # neighbors: 5\n\tMin cluster size: 24\n\tMin # of clusters: 1\n\tSkipping every 0 iteration\n\nTraining took 0.072 seconds\n","truncated":false}}
+%[output:3290096a]
+%   data: {"dataType":"text","outputData":{"text":"Training cluster hierarchy...\n\tData matrix size:\n\t\t1000 points x 50 dimensions\n\n\tMin # neighbors: 5\n\tMin cluster size: 24\n\tMin # of clusters: 1\n\tSkipping every 0 iteration\n\nTraining took 0.075 seconds\n","truncated":false}}
 %---
-%[output:8188684c]
-%   data: {"dataType":"text","outputData":{"text":"  mcs=24 -> clusters=1 | noise=36.9%n","truncated":false}}
+%[output:57422d3f]
+%   data: {"dataType":"text","outputData":{"text":"  mcs=24 -> clusters=1 | noise=36.9%\n","truncated":false}}
 %---
-%[output:4d65613e]
-%   data: {"dataType":"text","outputData":{"text":"Wrote: D:\\workspace\\github\\openalex-topic-map\\runs\\20251223_145931\\demo04_parent_stability.csv\n","truncated":false}}
+%[output:52c040d5]
+%   data: {"dataType":"text","outputData":{"text":"Wrote: D:\\workspace\\github\\openalex-topic-map\\runs\\20251223_155000\\demo04_parent_stability.csv\n","truncated":false}}
 %---
-%[output:7de27f78]
-%   data: {"dataType":"text","outputData":{"text":"Wrote: D:\\workspace\\github\\openalex-topic-map\\runs\\20251223_145931\\demo04_parent_clusters.csv\n","truncated":false}}
+%[output:91de20dc]
+%   data: {"dataType":"text","outputData":{"text":"Wrote: D:\\workspace\\github\\openalex-topic-map\\runs\\20251223_155000\\demo04_parent_clusters.csv\n","truncated":false}}
 %---
-%[output:97d40db3]
-%   data: {"dataType":"text","outputData":{"text":"Wrote: D:\\workspace\\github\\openalex-topic-map\\runs\\20251223_145931\\demo04_parent_state.mat\n","truncated":false}}
+%[output:98077be7]
+%   data: {"dataType":"text","outputData":{"text":"Wrote: D:\\workspace\\github\\openalex-topic-map\\runs\\20251223_155000\\demo04_parent_state.mat\n","truncated":false}}
 %---
-%[output:6cec2da5]
+%[output:7812b835]
 %   data: {"dataType":"text","outputData":{"text":"demo04 Step0-2 complete. Next: Step3 reps, Step4 child HDBSCAN.\n","truncated":false}}
 %---
