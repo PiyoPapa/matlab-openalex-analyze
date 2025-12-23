@@ -1,4 +1,4 @@
-# OpenAlex Topic Map (MATLAB)
+# # matlab-openalex-analyze
 
 This repository provides a **MATLAB-based workflow** for exploring research topics from
 **OpenAlex standard JSONL outputs**, focusing on **text reconstruction, baseline mapping, and diagnostic analysis**.
