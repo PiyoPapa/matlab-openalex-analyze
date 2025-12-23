@@ -4,6 +4,9 @@ This repository provides a **MATLAB-based workflow** for exploring research topi
 **OpenAlex standard JSONL outputs**, focusing on **text reconstruction, baseline mapping, and diagnostic analysis**.
 
 The goal is **not** to claim analytical optimality at early stages, but to offer a **transparent, reproducible pipeline**
+The goal is **not** to provide a general-purpose visualization suite,
+nor to claim analytical optimality at early stages.
+Instead, this repository offers a **transparent, reproducible topic-mapping workflow**
 that clearly separates:
 
 - data ingestion and text reconstruction
@@ -19,6 +22,7 @@ This project is designed around the following principles:
 - **Pipeline-first**  
   Input is always OpenAlex *standard JSONL* (one work per line).
   CSV-based normalization is intentionally out of scope here.
+  If you require fixed-schema CSVs, use `matlab-openalex-normalize` instead.
 
 - **Stepwise interpretability**  
   Each demo has a clearly defined responsibility.
@@ -26,6 +30,12 @@ This project is designed around the following principles:
 
 - **Reproducibility over polish**  
   Intermediate CSVs and diagnostics are preserved to support iteration and comparison.
+
+This repository is intentionally **narrow in scope**:
+it focuses on *topic mapping and semantic diagnostics only*.
+Other OpenAlex-based analyses (e.g. co-authorship networks,
+funding trend analysis, key-person identification)
+belong in separate downstream repositories.
 
 ---
 
@@ -290,6 +300,9 @@ Responsible for robust OpenAlex data acquisition
 
 ### matlab-openalex-normalize
 Optional CSV normalization (not required here)
+
+This repository consumes **standard JSONL directly** and does not require
+CSV normalization as a prerequisite.
 
 This repository starts **after** data acquisition,  
 directly from pipeline-standard JSONL.
