@@ -1,9 +1,8 @@
 # OpenAlex Topic Map (MATLAB)
 
-This repository provides a **MATLAB-based workflow** for exploring research topics from  
+This repository provides a **MATLAB-based workflow** for exploring research topics from
 **OpenAlex standard JSONL outputs**, focusing on **text reconstruction, baseline mapping, and diagnostic analysis**.
 
-The goal is **not** to claim analytical optimality at early stages, but to offer a **transparent, reproducible pipeline**
 The goal is **not** to provide a general-purpose visualization suite,
 nor to claim analytical optimality at early stages.
 Instead, this repository offers a **transparent, reproducible topic-mapping workflow**
@@ -77,13 +76,13 @@ data_sample/openalex_MATLAB_cursor_en_1000.standard.jsonl
 ## Demos Overview
 
 ### demo_01_cpu_minimal.mlx  
-**Purpose:** sanity check
+**Purpose:** minimal smoke test (sanity check)
 
-- Uses precomputed embeddings
-- Confirms plotting, clustering, and run directory logic
-- No OpenAlex-specific assumptions
+- Runs from **sample standard JSONL** (CSV is accepted only as a legacy fallback)
+- If precomputed embeddings are available, uses them; otherwise falls back to **TF-IDF**
+- Confirms: ingestion → vectorization → (PCA) → k-means → artifacts saved under `runDir`
 
-> This demo exists mainly for environment validation.
+> demo_01 is for pipeline integrity checks. The resulting plot is **not intended for interpretation**.
 
 ### demo_02_from_pipeline_jsonl.mlx  (Core Entry Point)
 
@@ -196,11 +195,17 @@ statistically separable topic regions.
 
 **Outputs**
 
-- `demo04_hdbscan.csv`  
-  Cluster labels and noise assignment
+- `demo04_parent_clusters.csv`  
+  Parent cluster labels and noise assignment
 
-- `demo04_parent_representatives.csv` (if applicable)  
-  Representative papers per detected density cluster
+- `demo04_parent_representatives.csv`  
+  Representative papers per detected parent cluster (if applicable)
+
+- `demo04_parent_stability.csv`  
+  Parameter sweep summary (stability diagnostics)
+
+- `demo04_parent_state.mat`, `demo04_child_state.mat`  
+  Saved intermediate states for reproducibility
 
 > demo_04 exists to answer a single question:  
 > **"Does the data *want* to be clustered?"**
@@ -240,8 +245,14 @@ on the **same semantic embedding space**.
 - `demo05_kmeans_silhouette.csv`  
   Silhouette scores across tested K values
 
+- `demo05_kmeans_K*.csv`  
+  Cluster assignments for the selected K (e.g., `demo05_kmeans_K9.csv`)
+
 - `demo05_parallel_hdbscan_vs_kmeans_*.png`  
   Side-by-side visualization
+
+- `demo05_step1_state.mat`, `demo05_step2_state.mat`  
+  Saved intermediate states for reproducibility
 
 > demo_05 is explicitly **diagnostic**, not prescriptive.  
 > It is designed to prevent over-interpretation of visually pleasing clusters.
@@ -277,7 +288,7 @@ cfg = topicmap.setup();
 cfg = topicmap.env_check(cfg);
 ```
 to verify availability.
-
+> env_check reports global readiness. Demo-specific prerequisites are validated inside each demo script.
 ---
 
 ## Intended Use

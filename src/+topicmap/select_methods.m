@@ -1,4 +1,4 @@
-function plan = select_methods(cfg, varargin)
+function plan = select_methods(cfg, opts)
 %TOPICMAP.SELECT_METHODS Choose methods based on available dependencies.
 %
 % plan = topicmap.select_methods(cfg)
@@ -18,12 +18,12 @@ function plan = select_methods(cfg, varargin)
 
     arguments
         cfg (1,1) struct
-        varargin.PreferUMAP (1,1) logical = true
-        varargin.PreferHDBSCAN (1,1) logical = true
+        opts.PreferUMAP     (1,1) logical = true
+        opts.PreferHDBSCAN (1,1) logical = true
     end
 
-    preferUMAP    = varargin.PreferUMAP;
-    preferHDBSCAN = varargin.PreferHDBSCAN;
+    preferUMAP    = opts.PreferUMAP;
+    preferHDBSCAN = opts.PreferHDBSCAN;
 
     if ~isfield(cfg, "env") || ~isstruct(cfg.env)
         error("topicmap:select_methods:NoEnv", "cfg.env is missing. Run cfg = topicmap.env_check(cfg) first.");
