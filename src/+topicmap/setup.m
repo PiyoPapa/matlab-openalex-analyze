@@ -1,5 +1,5 @@
 function cfg = setup(varargin)
-%TOPICMAP.SETUP  Resolve hub roots, add paths, create run directory, return cfg.
+%TOPICMAP.SETUP  Resolve hub roots and paths. (NO run directory creation)
     p = inputParser;
     addParameter(p,"HubRoot","",@(x)ischar(x)||isstring(x));
     parse(p,varargin{:});
@@ -11,7 +11,7 @@ function cfg = setup(varargin)
     pkgDir   = fileparts(thisFile);      % .../src/+topicmap
     srcDir   = fileparts(pkgDir);        % .../src
     repoRoot = fileparts(srcDir);        % .../openalex-topic-map
-    autoHub  = string(fileparts(repoRoot)); % .../github
+    autoHub  = string(fileparts(repoRoot)); % fallback only
 
     envHub = string(getenv("OPENALEX_MATLAB_HUB"));
     if strlength(hubArg) > 0
@@ -19,7 +19,8 @@ function cfg = setup(varargin)
     elseif strlength(envHub) > 0
         hubRoot = envHub;
     else
-        hubRoot = autoHub;
+        error("topicmap:HubRootRequired", ...
+            "OPENALEX_MATLAB_HUB is required. autoHub fallback is disabled by default.");
     end
 
     pipelineRoot  = fullfile(hubRoot,"matlab-openalex-pipeline");
@@ -33,11 +34,12 @@ function cfg = setup(varargin)
     cfg.srcRoot = fullfile(repoRoot,"src");
     cfg.examplesRoot = fullfile(repoRoot,"examples");
     cfg.dataSampleRoot = fullfile(repoRoot,"data_sample");
-    cfg.runsRoot = fullfile(repoRoot,"runs");
+    % Ensure topicmap src is on path (no genpath)
+    addpath(cfg.srcRoot);
 
-    cfg.runId  = datestr(now,"yyyymmdd_HHMMSS");
-    cfg.runDir = fullfile(cfg.runsRoot,cfg.runId);
-    if ~isfolder(cfg.runDir), mkdir(cfg.runDir); end
+    % unified output base (no side effects)
+    cfg.baseOutDir = fullfile(hubRoot,"data_processed","openalex-topicmap");
+    cfg.runDir = "";   % demos must create explicitly
 
     cfg.seed = 1;
     cfg.env  = struct(); % env.checkで埋める
@@ -58,6 +60,22 @@ function cfg = setup(varargin)
     % Sample defaults (demo_01)
     % ---------------------------
     cfg.sample = struct();
-    cfg.sample.worksCsv = "";        % optional for demo_01
+    % Prefer standard JSONL sample (pipeline output format)
+    cfg.sample.worksJsonl = "";      % recommended for demo_01
+    cfg.sample.worksCsv   = "";      % optional for demo_01
     cfg.sample.embeddingMat = "";    % optional for demo_01
+
+    % Auto-detect a sample JSONL under repoRoot/data_sample (if present)
+    sampleDir = fullfile(repoRoot, "data_sample");
+    if isfolder(sampleDir)
+        cand = fullfile(sampleDir, "openalex_MATLAB_cursor_en_1000.standard.jsonl");
+        if isfile(cand)
+            cfg.sample.worksJsonl = cand;
+        else
+            d = dir(fullfile(sampleDir, "*.standard.jsonl"));
+            if ~isempty(d)
+                cfg.sample.worksJsonl = fullfile(d(1).folder, d(1).name);
+            end
+        end
+    end
 end

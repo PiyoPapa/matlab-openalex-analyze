@@ -25,10 +25,16 @@ function cfg = env_check(cfg)
     recs  = string.empty(0,1);
 
     % ---------- Basic cfg sanity ----------
-    requiredFields = ["repoRoot","hubRoot","pipelineRoot","normalizeRoot","srcRoot","runsRoot","runId","runDir","seed"];
+    % New contract: env_check must NOT depend on run-specific fields
+    requiredFields = ["repoRoot","hubRoot","pipelineRoot","normalizeRoot","srcRoot","baseOutDir","seed"];
     missing = requiredFields(~isfield(cfg, requiredFields));
     if ~isempty(missing)
         error("topicmap:env:BadCfg", "cfg is missing required fields: %s", strjoin(missing, ", "));
+    end
+
+    % Ensure baseOutDir exists (shared output root)
+    if ~isfolder(cfg.baseOutDir)
+        mkdir(cfg.baseOutDir);
     end
 
     % ---------- Repo presence checks (optional at this stage) ----------
@@ -173,7 +179,8 @@ function cfg = env_check(cfg)
         recs(end+1) = "Optional: Deep Learning Toolbox is needed for GPU-heavy workflows (future demos).";
     end
 
-    % ---- Detect availability of a standard JSONL (one work per line) ----
+    % ---------- Detect availability of a standard JSONL (one work per line) ----
+    % NOTE: cfg.runDir is optional here; demos create it explicitly.
     % demo_02 gate: we only need at least one *.standard.jsonl reachable.
     hasPipelineJsonl = false;
     try
@@ -181,7 +188,8 @@ function cfg = env_check(cfg)
             d = dir(fullfile(cfg.repoRoot, "data_sample", "*.standard.jsonl"));
             hasPipelineJsonl = ~isempty(d);
         end
-        if ~hasPipelineJsonl && isfolder(cfg.runDir)
+        % runDir may not exist yet (demo responsibility)
+        if ~hasPipelineJsonl && isfield(cfg,"runDir") && isfolder(cfg.runDir)
             d = dir(fullfile(cfg.runDir, "*.standard.jsonl"));
             hasPipelineJsonl = ~isempty(d);
         end
