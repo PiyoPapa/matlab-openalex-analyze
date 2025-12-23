@@ -106,17 +106,71 @@ function cfg = env_check(cfg)
         recs(end+1) = "Optional: Install HDBSCAN via Add-On Explorer (Add to MATLAB). After installation, restart MATLAB if functions are not detected.";
     end
 
-    % ---------- BERT availability (optional; future) ----------
-    % We only detect broad prerequisites here; actual model availability is handled later.
+    % ---------- BERT / Text Embedding availability ----------
+    % NOTE: license("test", ...) is not always reliable across license setups.
+    % For demo_03 we use runtime checks instead.
     hasDL = license("test","Neural_Network_Toolbox") || license("test","Deep_Learning_Toolbox");
-    hasText = license("test","Text_Analytics_Toolbox");
+
+    % demo_03 uses MATLAB standard documentEmbedding + embed.
+    hasDocEmb = exist("documentEmbedding","file") ~= 0;
+    hasMiniLM_L6 = false;
+    hasMiniLM_L12 = false;
+    hasTextEmbed = false;     % interpret as "MiniLM embedding stack usable"
+    hasEmbedOk = false;
+
+    if ~hasDocEmb
+        recs(end+1) = "For demo_03: documentEmbedding not found. Install Text Analytics Toolbox and restart MATLAB.";
+    else
+        % Detect via Add-On Identifiers (most robust)
+        try
+            addons = matlab.addons.installedAddons;
+            ids = string(addons.Identifier);
+            hasMiniLM_L6  = any(ids == "MINILML6V2");
+            hasMiniLM_L12 = any(ids == "MINILML12V2");
+        catch
+            % If installedAddons is unavailable for any reason, fall back to runtime check below
+        end
+
+        % Runtime truth: can we construct the embedding model?
+        try
+            embL6 = documentEmbedding(Model="all-MiniLM-L6-v2"); %#ok<NASGU>
+            hasMiniLM_L6 = true;
+        catch
+            hasMiniLM_L6 = false;
+        end
+        try
+            embL12 = documentEmbedding(Model="all-MiniLM-L12-v2"); %#ok<NASGU>
+            hasMiniLM_L12 = true;
+        catch
+            hasMiniLM_L12 = false;
+        end
+
+        % Runtime truth: can we embed a short string?
+        if hasMiniLM_L6
+            try
+                emb = documentEmbedding(Model="all-MiniLM-L6-v2");
+                v = embed(emb, "hello"); %#ok<NASGU>
+                hasEmbedOk = true;
+            catch
+                hasEmbedOk = false;
+            end
+        end
+        hasTextEmbed = hasMiniLM_L6 && hasEmbedOk;
+        if ~hasMiniLM_L6
+            warns(end+1) = "MiniLM support package missing: all-MiniLM-L6-v2 (required for demo_03 standard embeddings).";
+            recs(end+1)  = "Install 'Text Analytics Toolbox Model for all-MiniLM-L6-v2 Network' (Add-On / File Exchange), then re-run topicmap.env_check().";
+        end
+        if ~hasMiniLM_L12
+            recs(end+1)  = "Optional: Install 'Text Analytics Toolbox Model for all-MiniLM-L12-v2 Network' if you want the larger variant.";
+        end
+    end
+    % Keep legacy BERT flag (still optional/future)
     hasBERT = false;
-    if hasDL && hasText
-        % Some distributions provide 'bert' as a function; not guaranteed.
+    if hasDL
         hasBERT = exist("bert","file") ~= 0;
     end
-    if ~(hasDL && hasText)
-        recs(end+1) = "Optional: Deep Learning Toolbox + Text Analytics Toolbox are needed for BERT-based embeddings.";
+    if ~hasDL
+        recs(end+1) = "Optional: Deep Learning Toolbox is needed for GPU-heavy workflows (future demos).";
     end
 
     % ---- Detect availability of a standard JSONL (one work per line) ----
@@ -206,8 +260,11 @@ function cfg = env_check(cfg)
     cfg.env.hasUMAP     = hasUMAP;
     cfg.env.hasHDBSCAN  = hasHDBSCAN;
     cfg.env.hasDL       = hasDL;
-    cfg.env.hasText     = hasText;
+    cfg.env.hasTextEmbed = hasTextEmbed;
     cfg.env.hasBERT     = hasBERT;
+    cfg.env.hasDocEmb   = hasDocEmb;
+    cfg.env.hasMiniLM_L6  = hasMiniLM_L6;
+    cfg.env.hasMiniLM_L12 = hasMiniLM_L12;
     cfg.env.hasPipelineJsonl = hasPipelineJsonl;
     cfg.env.hasPipelineJsonlPath = hasPipelineJsonlPath;
 
@@ -224,6 +281,8 @@ function cfg = env_check(cfg)
     cfg.env.optionalOk_demo01 = cfg.env.optionalOk;
     % demo_02 (current phase): JSONL -> text is doable without BERT
     cfg.env.optionalOk_demo02 = cfg.env.hasPipelineJsonl || cfg.env.hasPipelineJsonlPath;
+    % demo_03 (standard embeddings): require Text Analytics + documentEmbedding + MiniLM-L6
+    cfg.env.optionalOk_demo03 = cfg.env.hasDocEmb && cfg.env.hasMiniLM_L6 && cfg.env.hasTextEmbed;
 
     % Print warnings in a concise way (do not spam).
     if ~isempty(warns)
@@ -238,7 +297,10 @@ function cfg = env_check(cfg)
             end
         end
     else
-        fprintf("[topicmap.env_check] OK: environment looks good.\n");
+        fprintf("[topicmap.env_check] OK: required checks passed.\n");
+        fprintf("  demo_02 ready: %d\n", cfg.env.optionalOk_demo02);
+        fprintf("  demo_03 ready: %d\n", cfg.env.optionalOk_demo03);
+        fprintf("  demo_01 sample-ready (legacy optionalOk): %d\n", cfg.env.optionalOk);
     end
 
     % ---------- nested helper ----------
