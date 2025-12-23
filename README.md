@@ -14,6 +14,20 @@ that clearly separates:
 
 ---
 
+## Repository position in the OpenAlex–MATLAB workflow
+
+This repository is part of a three-stage workflow for analyzing OpenAlex data in MATLAB.
+
+1. **Data acquisition**  
+   - [`matlab-openalex-pipeline`](https://github.com/PiyoPapa/matlab-openalex-pipeline)
+
+2. **Data normalization (CSV / standard JSONL)**  
+   - [`matlab-openalex-normalize`](https://github.com/PiyoPapa/matlab-openalex-normalize)
+
+3. **Analysis & topic mapping (this repository)**  
+   - [`matlab-openalex-analyze`](https://github.com/PiyoPapa/matlab-openalex-analyze)
+
+
 ## Scope and Philosophy
 
 This project is designed around the following principles:
