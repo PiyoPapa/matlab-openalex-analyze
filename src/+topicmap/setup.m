@@ -5,22 +5,21 @@ function cfg = setup(varargin)
     parse(p,varargin{:});
     hubArg = string(p.Results.HubRoot);
 
-    % mfilename("fullpath") points to .../openalex-topic-map/src/+topicmap/setup.m
-    % We want repoRoot = .../openalex-topic-map
+    % mfilename("fullpath") points to .../matlab-openalex-analyze/src/+topicmap/setup.m
+    % We want repoRoot = .../matlab-openalex-analyze
     thisFile = mfilename("fullpath");
     pkgDir   = fileparts(thisFile);      % .../src/+topicmap
     srcDir   = fileparts(pkgDir);        % .../src
-    repoRoot = fileparts(srcDir);        % .../openalex-topic-map
-    autoHub  = string(fileparts(repoRoot)); % fallback only
-
+    repoRoot = fileparts(srcDir);        % .../matlab-openalex-analyze
     envHub = string(getenv("OPENALEX_MATLAB_HUB"));
     if strlength(hubArg) > 0
         hubRoot = hubArg;
     elseif strlength(envHub) > 0
         hubRoot = envHub;
     else
-        error("topicmap:HubRootRequired", ...
-            "OPENALEX_MATLAB_HUB is required. autoHub fallback is disabled by default.");
+        % Safe default: treat this repository as the hub root.
+        % Users may override via OPENALEX_MATLAB_HUB or the HubRoot parameter.
+        hubRoot = repoRoot;
     end
 
     pipelineRoot  = fullfile(hubRoot,"matlab-openalex-pipeline");

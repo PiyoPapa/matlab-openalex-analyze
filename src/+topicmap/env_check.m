@@ -1,5 +1,5 @@
 function cfg = env_check(cfg)
-%TOPICMAP.ENV_CHECK  Validate environment and dependencies for openalex-topic-map.
+%TOPICMAP.ENV_CHECK  Validate environment and dependencies for matlab-openalex-analyze.
 %
 %   cfg = topicmap.env_check(cfg)
 %
@@ -211,18 +211,21 @@ function cfg = env_check(cfg)
     hasSampleWorks = false;
     hasSampleEmbed = false;
     if isfield(cfg,"sample") && isstruct(cfg.sample)
-        if isfield(cfg.sample,"worksCsv") && strlength(string(cfg.sample.worksCsv))>0
-            hasSampleWorks = isfile(cfg.sample.worksCsv);
+        hasWorksCsv = isfield(cfg.sample,"worksCsv") && strlength(string(cfg.sample.worksCsv))>0 && isfile(cfg.sample.worksCsv);
+        hasWorksJsonl = isfield(cfg.sample,"worksJsonl") && strlength(string(cfg.sample.worksJsonl))>0 && isfile(cfg.sample.worksJsonl);
+        hasSampleWorks = hasWorksCsv || hasWorksJsonl;
+        if isfield(cfg.sample,"worksCsv") && strlength(string(cfg.sample.worksCsv))>0 && ~hasWorksCsv
+
             if ~hasSampleWorks
                 warns(end+1) = "Sample worksCsv path is set but file does not exist. Minimal demo may fail unless you provide input data.";
                 recs(end+1)  = "Provide cfg.sample.worksCsv (e.g., data_sample/works_sample.csv) or generate one from pipeline/normalize outputs.";
             end
-        else
+        elseif ~hasSampleWorks
             % If demo_02 (JSONL -> text) is available, worksCsv is not required.
             if ~(hasPipelineJsonl || hasPipelineJsonlPath)
                 warns(end+1) = "No input data configured: cfg.sample.worksCsv is not set and no pipeline JSONL is available. Provide at least one to run demos.";
             end
-            recs(end+1)  = "Optional: set cfg.sample.worksCsv to support a CSV-based minimal demo (demo_01).";
+            recs(end+1)  = "Optional: set cfg.sample.worksJsonl (recommended) or cfg.sample.worksCsv to support the minimal demo (demo_01).";
         end
 
         if isfield(cfg.sample,"embeddingMat") && strlength(string(cfg.sample.embeddingMat))>0
