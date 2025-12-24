@@ -1,107 +1,148 @@
 # # matlab-openalex-analyze
 
-This repository provides a **MATLAB-based workflow** for exploring research topics from
-**OpenAlex standard JSONL outputs**, focusing on **text reconstruction, baseline mapping, and diagnostic analysis**.
+Experimental MATLAB workflows for **diagnostic topic analysis** on OpenAlex data.
+This repository focuses on *making intermediate structure visible*—from text
+reconstruction to baseline and semantic mappings—rather than producing final or
+optimized analytical results.
 
-The goal is **not** to provide a general-purpose visualization suite,
-nor to claim analytical optimality at early stages.
-Instead, this repository offers a **transparent, reproducible topic-mapping workflow**
-that clearly separates:
-
-- data ingestion and text reconstruction
-- baseline structure inspection (TF-IDF)
-- semantic modeling with Transformer embeddings (MiniLM) and 2D mapping
-
+It is intended for controlled, time-bounded exploration, not for production use
+or comprehensive research analytics.
+ 
 ---
 
 ## Repository position in the OpenAlex–MATLAB workflow
+## Overview
 
+- **Who this is for**  
+  Professionals who are *not* full-time text-analytics developers, but who need to
+  inspect research-topic structure reproducibly within MATLAB.
+
+- **What problem this addresses**  
+  Understanding whether OpenAlex-derived text data is *analytically usable* before
+  committing to deeper modeling or interpretation.
+
+- **What layer this represents**  
+  The *analysis and diagnostic* layer, operating directly on pipeline-standard JSONL.
+
+## What this repository provides (and what it doesn't)
+
+**Provides**
+
+- Text reconstruction from OpenAlex standard JSONL
+- Baseline structure inspection (TF-IDF, PCA, k-means)
+- Semantic embeddings and maps for *diagnostic comparison*
+- Explicit intermediate artifacts (CSV, MAT, figures) for inspection
+
+**Does NOT provide**
+
+- A general-purpose visualization framework
+- Optimized or production-grade topic models
+- End-to-end OpenAlex ingestion or CSV normalization
+- Authoritative or finalized topic interpretations
+
+## Repository position in the OpenAlex–MATLAB workflow
 This repository is part of a three-stage workflow for analyzing OpenAlex data in MATLAB.
 
-1. **Data acquisition**  
-   - [`matlab-openalex-pipeline`](https://github.com/PiyoPapa/matlab-openalex-pipeline)
+1. **Acquisition** — fetch OpenAlex Works  
+   → [`matlab-openalex-pipeline`](https://github.com/PiyoPapa/matlab-openalex-pipeline)
 
-2. **Data normalization (CSV / standard JSONL)**  
-   - [`matlab-openalex-normalize`](https://github.com/PiyoPapa/matlab-openalex-normalize)
+2. **Normalization** — fixed-schema, versioned CSVs  
+   → [`matlab-openalex-normalize`](https://github.com/PiyoPapa/matlab-openalex-normalize)
 
-3. **Analysis & topic mapping (this repository)**  
-   - [`matlab-openalex-analyze`](https://github.com/PiyoPapa/matlab-openalex-analyze)
+3. **Analysis / topic mapping** — diagnostics and semantic maps (**this repository**)
 
+## Scope and design principles
+This repository is intentionally **experimental and narrow in scope**.
+Its design follows a small set of constraints shared across the OpenAlex–MATLAB workflow:
 
-## Scope and Philosophy
+- **Pipeline-first inputs**  
+  Only OpenAlex *standard JSONL* is treated as canonical input.
+  Schema stabilization is delegated upstream.
 
-This project is designed around the following principles:
-
-- **Pipeline-first**  
-  Input is always OpenAlex *standard JSONL* (one work per line).
-  CSV-based normalization is intentionally out of scope here.
-  If you require fixed-schema CSVs, use `matlab-openalex-normalize` instead.
-
-- **Stepwise interpretability**  
-  Each demo has a clearly defined responsibility.
-  Interpretation depth increases only when the underlying representation justifies it.
+- **Stepwise diagnostics**  
+  Each stage answers a limited question (e.g., text quality, structure presence,
+  semantic continuity) before moving forward.
 
 - **Reproducibility over polish**  
-  Intermediate CSVs and diagnostics are preserved to support iteration and comparison.
+  Intermediate states are preserved to support comparison, failure analysis,
+  and iterative refinement.
 
-This repository is intentionally **narrow in scope**:
-it focuses on *topic mapping and semantic diagnostics only*.
-Other OpenAlex-based analyses (e.g. co-authorship networks,
-funding trend analysis, key-person identification)
-belong in separate downstream repositories.
+Advanced analytics, large-scale optimization, and domain-specific interpretation
+are explicitly out of scope and expected to live in downstream repositories.
 
 ---
 
-## Repository Structure (Relevant Parts)
+## Repository structure
+
+The repository is organized to mirror the **analysis lifecycle**:
+input ingestion → text reconstruction → representation → diagnostics.
+The structure is intentionally shallow to keep execution paths visible.
+
 ```text
 ├─ data_sample/
 │  └─ *.standard.jsonl        # small OpenAlex samples (≤1000 works)
 ├─ src/
 │  └─ +topicmap/
-│     ├─ read_pipeline_jsonl.m
-│     ├─ reconstruct_abstract.m
-│     ├─ extract_text.m
-│     ├─ clean_text.m
-│     └─ env_check.m
+│     ├─ read_pipeline_jsonl.m    # JSONL ingestion
+│     ├─ reconstruct_abstract.m   # abstract reconstruction
+│     ├─ extract_text.m           # title + abstract assembly
+│     ├─ clean_text.m             # minimal token cleanup
+│     └─ env_check.m              # environment diagnostics
 └─ examples/
-   ├─ demo_01_cpu_minimal.mlx
+   ├─ demo_01_cpu_minimal.mlx      # pipeline sanity check
    ├─ demo_02_from_pipeline_jsonl.mlx
    ├─ demo_03_semantic_topic_map.mlx
    ├─ demo_04_hdbscan_child_clusters.mlx
    └─ demo_05_hdbscan_vs_kmeans.mlx
 ```
+The src/+topicmap functions are not a general-purpose API.
+They exist to support the demos and to make data transformations explicit.
 
+## Input / Output contract
 
-## Input Data
+### Input (Required)
 
-### Standard JSONL (Required)
-
-- **Format**: one OpenAlex *work* per line  
-- **Source**: output of `matlab-openalex-pipeline`
-- **Typical size**: ≤1000 works for demos
+- Format: OpenAlex standard JSONL (one work per line)
+- Source: output of matlab-openalex-pipeline
+- Assumptions:
 
 Example:
 ```text
 data_sample/openalex_MATLAB_cursor_en_1000.standard.jsonl
 ```
-> These samples are **trimmed for quick local execution**  
-> and are **not intended for final analysis quality evaluation**.
+Sample files are intentionally small and exist only to
+support fast, local diagnostic execution.
 
-## Demos Overview
+### Output (By design)
+
+Outputs are intermediate analytical artifacts, not final results.
+Depending on the demo, these include:
+
+- reconstructed text tables
+- vector representations and projections
+- cluster assignments and representatives
+- diagnostic CSVs and figures
+
+All outputs are written to run-specific directories to
+support comparison and reproducibility.
+
+## Demos / diagnostic stages
+The demos are ordered as progressive diagnostic stages.
+Each demo assumes that the previous stage has validated its inputs.
 
 ### demo_01_cpu_minimal.mlx  
-**Purpose:** minimal smoke test (sanity check)
+**Purpose:** pipeline sanity check
 
 - Runs from **sample standard JSONL** (CSV is accepted only as a legacy fallback)
 - If precomputed embeddings are available, uses them; otherwise falls back to **TF-IDF**
 - Confirms: ingestion → vectorization → (PCA) → k-means → artifacts saved under `runDir`
 
-> demo_01 is for pipeline integrity checks. The resulting plot is **not intended for interpretation**.
+This demo exists solely to confirm that the execution environment
+and data path are functional.
 
 ### demo_02_from_pipeline_jsonl.mlx  (Core Entry Point)
 
-**Purpose:**  
-Baseline topic mapping and text-quality diagnostics from raw OpenAlex JSONL.
+**Purpose:** baseline structure and text-quality diagnostics
 
 **What it does**
 
@@ -307,34 +348,63 @@ to verify availability.
 
 ## Intended Use
 
-This repository is suitable for:
+This repository is intended for **diagnostic and exploratory use only**, including:
 
-- exploratory research trend mapping
-- educational demonstrations
-- method comparison (TF-IDF vs BERT)
-- reproducible topic analysis workflows in MATLAB
+- inspecting whether OpenAlex-derived text is analytically usable
+- comparing baseline vs semantic representations *before interpretation*
+- educational or internal demonstrations of topic-mapping mechanics
+- controlled experiments on clustering assumptions and stability
 
-It is **not** a black-box analytics product.
+It is **not intended** for:
 
+- decision-making without downstream validation
+- automated or large-scale production analysis
+- authoritative topic labeling or trend reporting
+- replacement of domain expertise or commercial analytics tools
+ 
 ---
 
 ## Relationship to Other Repositories
 
-### matlab-openalex-pipeline
-Responsible for robust OpenAlex data acquisition
+This repository is designed to operate **within a deliberately split workflow**.
+Each repository enforces a single responsibility.
 
-### matlab-openalex-normalize
-Optional CSV normalization (not required here)
+### matlab-openalex-pipeline  
+Responsible for OpenAlex data acquisition and API interaction.
 
-This repository consumes **standard JSONL directly** and does not require
-CSV normalization as a prerequisite.
+### matlab-openalex-normalize  
+Optional schema stabilization and CSV normalization.
 
-This repository starts **after** data acquisition,  
-directly from pipeline-standard JSONL.
+This repository:
+
+- consumes **pipeline-standard JSONL directly**
+- does **not** depend on normalized CSVs
+- assumes upstream data integrity, not downstream interpretation
+
+Any extension beyond diagnostic topic mapping
+should be implemented as a **separate downstream repository**.
 
 ---
 
-## License / Notes
+## Disclaimer
+The author is an employee of MathWorks Japan.
+This repository is a personal experimental project developed independently
+and is not part of any MathWorks product, service, or official content.
 
-- Sample data included here is for demonstration only
-- Users should regenerate JSONL from OpenAlex for real analyses
+MathWorks does not review, endorse, support, or maintain this repository.
+All opinions and implementations are solely those of the author.
+
+## License
+MIT License. See the LICENSE file for details.
+
+## A note for contributors
+This repository prioritizes:
+- clarity over abstraction
+- reproducibility over convenience
+- explicit configuration over magic defaults
+
+## Contact
+This project is maintained on a best-effort basis and does not provide official support.
+
+For bug reports or feature requests, please use GitHub Issues.
+If you plan to extend it, please preserve the principles stated above.
