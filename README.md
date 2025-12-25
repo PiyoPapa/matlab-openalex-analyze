@@ -89,11 +89,12 @@ The structure is intentionally shallow to keep execution paths visible.
 │     ├─ clean_text.m             # minimal token cleanup
 │     └─ env_check.m              # environment diagnostics
 └─ examples/
-   ├─ demo_01_cpu_minimal.mlx      # pipeline sanity check
-   ├─ demo_02_from_pipeline_jsonl.mlx
-   ├─ demo_03_semantic_topic_map.mlx
-   ├─ demo_04_hdbscan_child_clusters.mlx
-   └─ demo_05_hdbscan_vs_kmeans.mlx
+   ├─ Ch_00_Setup_Paths_and_Diagnostics.mlx      # pipeline sanity check
+   ├─ Ch_01_CPU_Minimal_JSONL_to_Map.mlx
+   ├─ Ch_02_From_Pipeline_JSONL.mlx
+   ├─ Ch_03_Semantic_Topic_Map.mlx
+   ├─ Ch_04_HDBSCAN_Child_Clusters.mlx
+   └─ Ch_05_explicit-purpose.mlx
 ```
 The src/+topicmap functions are not a general-purpose API.
 They exist to support the demos and to make data transformations explicit.
@@ -130,7 +131,7 @@ support comparison and reproducibility.
 The demos are ordered as progressive diagnostic stages.
 Each demo assumes that the previous stage has validated its inputs.
 
-### demo_01_cpu_minimal.mlx  
+### Ch_01_CPU_Minimal_JSONL_to_Map.mlx  
 **Purpose:** pipeline sanity check
 
 - Runs from **sample standard JSONL** (CSV is accepted only as a legacy fallback)
@@ -140,7 +141,7 @@ Each demo assumes that the previous stage has validated its inputs.
 This demo exists solely to confirm that the execution environment
 and data path are functional.
 
-### demo_02_from_pipeline_jsonl.mlx  (Core Entry Point)
+### Ch_02_From_Pipeline_JSONL.mlx  (Core Entry Point)
 
 **Purpose:** baseline structure and text-quality diagnostics
 
@@ -177,13 +178,13 @@ These outputs are meant for:
 
 ---
 
-### demo_03_semantic_topic_map.mlx  (Semantic Baseline)
+### Ch_03_Semantic_Topic_Map.mlx  (Semantic Baseline)
 
 **Purpose:** semantic topic mapping using Transformer embeddings
 
 **What this demo does**
 
-1. Reads OpenAlex standard JSONL (same input contract as demo_02)
+1. Reads OpenAlex standard JSONL (same input contract as Ch_02)
 2. Reconstructs text (`title + abstract`) and applies the same conservative cleaning
 3. Computes Transformer embeddings using  
    `documentEmbedding(Model="all-MiniLM-L6-v2")`
@@ -219,7 +220,7 @@ These outputs are meant for:
 
 ---
 
-### demo_04_hdbscan_child_clusters.mlx  (Density Diagnostic)
+### Ch_04_HDBSCAN_Child_Clusters.mlx  (Density Diagnostic)
 
 **Purpose:**  
 Density-based diagnostic to test whether the semantic space contains
@@ -267,7 +268,7 @@ statistically separable topic regions.
 
 ---
 
-### demo_05_hdbscan_vs_kmeans.mlx  (Diagnostic Comparison)
+### Ch_05_explicit-purpose.mlx  (Diagnostic Comparison)
 
 **Purpose:**  
 Side-by-side comparison between:
@@ -314,7 +315,7 @@ on the **same semantic embedding space**.
 
 ---
 
-## Token Cleaning Policy (demo_02)
+## Token Cleaning Policy (Ch_02)
 
 Cleaning is intentionally **minimal and conservative**:
 
@@ -334,8 +335,8 @@ while suppressing obvious mathematical noise.
 ## Environment Requirements
 
 - MATLAB R2022b or later recommended
-- Text Analytics Toolbox (required for demo_02 TF-IDF)
-- Deep Learning Toolbox (only required for demo_03)
+- Text Analytics Toolbox (required for Ch_02 TF-IDF)
+- Deep Learning Toolbox (only required for Ch_03)
 
 Run:
 ```matlab

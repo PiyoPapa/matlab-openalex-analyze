@@ -4,13 +4,16 @@ function cfg = env_check(cfg)
 %   cfg = topicmap.env_check(cfg)
 %
 % This function populates cfg.env.* and throws an error only for conditions
-% that would make the *minimal* demo impossible to run.
+% that would make the *minimal* chapter impossible to run.
 %
-% Minimal demo requirements:
+% Side effects (intentional):
+%   - creates cfg.baseOutDir if it does not exist (shared output root)
+%
+% Minimal chapter requirements:
 %   - Statistics and Machine Learning Toolbox (PCA/k-means)
 %   - basic MATLAB IO (table/readtable/writetable)
 %
-% Optional / advanced features (warn if missing):
+% Optional / advanced features (warn if missing, chapter-dependent):
 %   - GPU availability
 %   - UMAP implementation availability
 %   - HDBSCAN implementation availability
@@ -32,7 +35,7 @@ function cfg = env_check(cfg)
         error("topicmap:env:BadCfg", "cfg is missing required fields: %s", strjoin(missing, ", "));
     end
 
-    % Ensure baseOutDir exists (shared output root)
+    % Ensure baseOutDir exists (shared output root). This is an intentional side effect.
     if ~isfolder(cfg.baseOutDir)
         mkdir(cfg.baseOutDir);
     end
@@ -46,11 +49,11 @@ function cfg = env_check(cfg)
         recs(end+1)  = "Clone matlab-openalex-pipeline under hubRoot and re-run topicmap.env_check().";
     end
     if ~hasNormalize
-        warns(end+1) = "Normalize repo not found (expected <hub>/matlab-openalex-normalize/src). This is OK for demo_02 (JSONL->map).";
+        warns(end+1) = "Normalize repo not found (expected <hub>/matlab-openalex-normalize/src). This is OK for Chapter 02 (JSONL -> Map).";
         recs(end+1)  = "Optional: clone matlab-openalex-normalize only if you want CSV-based workflows.";
     end
 
-    % ---------- Required toolboxes (minimal demo) ----------
+    % ---------- Required toolboxes (minimal chapter) ----------
     % Your declared policy:
     %   Required: Statistics and Machine Learning Toolbox
     %   Optional: UMAP / HDBSCAN / BERT / GPU
@@ -61,7 +64,7 @@ function cfg = env_check(cfg)
     end
 
     % ---------- Required MATLAB function availability ----------
-    % Treat missing as hard error: minimal demo relies on these.
+    % Treat missing as hard error: minimal chapter relies on these.
     reqFcns = ["kmeans","pca","table","readtable","writetable"];
     missingFcns = string.empty(0,1);
     for f = reqFcns
@@ -92,8 +95,9 @@ function cfg = env_check(cfg)
     % ---------- UMAP availability (optional) ----------
     % We cannot rely on a single canonical function name; check common ones.
     hasUMAP = has_any_function_(["run_umap","umap","UMAP"], ...
-        ["UMAP function not found. Minimal demo can fall back to PCA. " + ...
-         "If you want UMAP-based maps, install a MATLAB UMAP add-on (recommended: Add-On Explorer -> 'Uniform Manifold Approximation and Projection (UMAP)' -> Add to MATLAB)."]);
+        "UMAP function not found. Minimal chapter can fall back to PCA. " + ...
+        "If you want UMAP-based maps, install a MATLAB UMAP add-on (recommended: Add-On Explorer -> 'Uniform Manifold Approximation and Projection (UMAP)' -> Add to MATLAB).");
+
     if ~hasUMAP
         if has_addon_like_("umap")
             warns(end+1) = "UMAP add-on may already be installed, but functions are not visible on the MATLAB path. Try restarting MATLAB, then re-run topicmap.env_check().";
@@ -101,10 +105,17 @@ function cfg = env_check(cfg)
         recs(end+1) = "Optional: Install UMAP via Add-On Explorer (Add to MATLAB). After installation, restart MATLAB if functions are not detected.";
     end
 
+    % ---------- 2D embedding availability (Chapter 03+) ----------
+    hasTSNE = exist("tsne","file") ~= 0;
+    if ~(hasUMAP || hasTSNE)
+        warns(end+1) = "No 2D embedding method found (umap/run_umap/tsne). Chapter 03 requires a 2D layout method.";
+        recs(end+1)  = "For Chapter 03: install a UMAP add-on (recommended) or ensure tsne() is available, then re-run topicmap.env_check().";
+    end
+
     % ---------- HDBSCAN availability (optional) ----------
     hasHDBSCAN = has_any_function_(["hdbscan","HDBSCAN"], ...
-        ["HDBSCAN function not found. This is optional (k-means remains default). " + ...
-         "If you want density-based clustering, install an HDBSCAN add-on (recommended: Add-On Explorer -> 'HDBSCAN' -> Add to MATLAB)."]);
+        "HDBSCAN function not found. This is optional (k-means remains default). " + ...
+        "If you want density-based clustering, install an HDBSCAN add-on (recommended: Add-On Explorer -> 'HDBSCAN' -> Add to MATLAB).");
     if ~hasHDBSCAN
         if has_addon_like_("hdbscan")
             warns(end+1) = "HDBSCAN add-on may already be installed, but functions are not visible on the MATLAB path. Try restarting MATLAB, then re-run topicmap.env_check().";
@@ -114,10 +125,10 @@ function cfg = env_check(cfg)
 
     % ---------- BERT / Text Embedding availability ----------
     % NOTE: license("test", ...) is not always reliable across license setups.
-    % For demo_03 we use runtime checks instead.
+    % For Ch_03 we use runtime checks instead.
     hasDL = license("test","Neural_Network_Toolbox") || license("test","Deep_Learning_Toolbox");
 
-    % demo_03 uses MATLAB standard documentEmbedding + embed.
+    % Ch_03 uses MATLAB standard documentEmbedding + embed.
     hasDocEmb = exist("documentEmbedding","file") ~= 0;
     hasMiniLM_L6 = false;
     hasMiniLM_L12 = false;
@@ -125,7 +136,7 @@ function cfg = env_check(cfg)
     hasEmbedOk = false;
 
     if ~hasDocEmb
-        recs(end+1) = "For demo_03: documentEmbedding not found. Install Text Analytics Toolbox and restart MATLAB.";
+        recs(end+1) = "For Chapter 03: documentEmbedding not found. Install Text Analytics Toolbox and restart MATLAB.";
     else
         % Detect via Add-On Identifiers (most robust)
         try
@@ -163,8 +174,8 @@ function cfg = env_check(cfg)
         end
         hasTextEmbed = hasMiniLM_L6 && hasEmbedOk;
         if ~hasMiniLM_L6
-            warns(end+1) = "MiniLM support package missing: all-MiniLM-L6-v2 (required for demo_03 standard embeddings).";
-            recs(end+1)  = "Install 'Text Analytics Toolbox Model for all-MiniLM-L6-v2 Network' (Add-On / File Exchange), then re-run topicmap.env_check().";
+            warns(end+1) = "MiniLM support package missing: all-MiniLM-L6-v2 (required for Chapter 03 standard embeddings).";
+            recs(end+1)  = "For Chapter 03: install 'Text Analytics Toolbox Model for all-MiniLM-L6-v2 Network', then re-run topicmap.env_check().";
         end
         if ~hasMiniLM_L12
             recs(end+1)  = "Optional: Install 'Text Analytics Toolbox Model for all-MiniLM-L12-v2 Network' if you want the larger variant.";
@@ -176,19 +187,19 @@ function cfg = env_check(cfg)
         hasBERT = exist("bert","file") ~= 0;
     end
     if ~hasDL
-        recs(end+1) = "Optional: Deep Learning Toolbox is needed for GPU-heavy workflows (future demos).";
+        recs(end+1) = "Optional: Deep Learning Toolbox is needed for GPU-heavy workflows (future chapters).";
     end
 
     % ---------- Detect availability of a standard JSONL (one work per line) ----
-    % NOTE: cfg.runDir is optional here; demos create it explicitly.
-    % demo_02 gate: we only need at least one *.standard.jsonl reachable.
+    % NOTE: cfg.runDir is optional here; chapters create it explicitly.
+    % Ch_02 gate: we only need at least one *.standard.jsonl reachable.
     hasPipelineJsonl = false;
     try
         if isfolder(fullfile(cfg.repoRoot, "data_sample"))
             d = dir(fullfile(cfg.repoRoot, "data_sample", "*.standard.jsonl"));
             hasPipelineJsonl = ~isempty(d);
         end
-        % runDir may not exist yet (demo responsibility)
+        % runDir may not exist yet (chapter responsibility)
         if ~hasPipelineJsonl && isfield(cfg,"runDir") && isfolder(cfg.runDir)
             d = dir(fullfile(cfg.runDir, "*.standard.jsonl"));
             hasPipelineJsonl = ~isempty(d);
@@ -217,50 +228,49 @@ function cfg = env_check(cfg)
         if isfield(cfg.sample,"worksCsv") && strlength(string(cfg.sample.worksCsv))>0 && ~hasWorksCsv
 
             if ~hasSampleWorks
-                warns(end+1) = "Sample worksCsv path is set but file does not exist. Minimal demo may fail unless you provide input data.";
+                warns(end+1) = "Sample worksCsv path is set but file does not exist. Minimal chapter may fail unless you provide input data.";
                 recs(end+1)  = "Provide cfg.sample.worksCsv (e.g., data_sample/works_sample.csv) or generate one from pipeline/normalize outputs.";
             end
         elseif ~hasSampleWorks
-            % If demo_02 (JSONL -> text) is available, worksCsv is not required.
+            % If Ch_02 (JSONL -> text) is available, worksCsv is not required.
             if ~(hasPipelineJsonl || hasPipelineJsonlPath)
-                warns(end+1) = "No input data configured: cfg.sample.worksCsv is not set and no pipeline JSONL is available. Provide at least one to run demos.";
+                warns(end+1) = "No input data configured: cfg.sample.worksCsv is not set and no pipeline JSONL is available. Provide at least one to run chapters.";
             end
-            recs(end+1)  = "Optional: set cfg.sample.worksJsonl (recommended) or cfg.sample.worksCsv to support the minimal demo (demo_01).";
+            recs(end+1)  = "Optional: set cfg.sample.worksJsonl (recommended) or cfg.sample.worksCsv to support the minimal chapter (Ch_01).";     
         end
 
         if isfield(cfg.sample,"embeddingMat") && strlength(string(cfg.sample.embeddingMat))>0
             hasSampleEmbed = isfile(cfg.sample.embeddingMat);
             if ~hasSampleEmbed
-                warns(end+1) = "Sample embeddingMat path is set but file does not exist. Minimal demo may require computing embeddings, which can be slow without GPU.";
-                recs(end+1)  = "Provide cfg.sample.embeddingMat (e.g., data_sample/embeddings_sample.mat) to run demo_01 without BERT/GPU.";
+                warns(end+1) = "Sample embeddingMat path is set but file does not exist. Minimal chapter may require computing embeddings, which can be slow without GPU.";
+                recs(end+1)  = "Provide cfg.sample.embeddingMat (e.g., data_sample/embeddings_sample.mat) to run Ch_01 without BERT/GPU.";
             end
         end
     else
-        warns(end+1) = "cfg.sample is not configured. Consider shipping a small sample dataset (or embeddings) for the minimal demo.";
+        warns(end+1) = "cfg.sample is not configured. Consider shipping a small sample dataset (or embeddings) for the minimal chapter.";
         recs(end+1)  = "Add cfg.sample.* defaults in topicmap.setup() and ship minimal files under data_sample/.";
     end
 
-    % ---------- Pipeline JSONL input hint (for demo_02) ----------
+    % ---------- Pipeline JSONL input hint (for Ch_02) ----------
     % (Keep separate info: explicit user-provided path)
     if isfield(cfg,"input") && isstruct(cfg.input) && isfield(cfg.input,"pipelineJsonl")
         pj = string(cfg.input.pipelineJsonl);
         if strlength(pj) > 0
             if ~hasPipelineJsonlPath
-                warns(end+1) = "cfg.input.pipelineJsonl is set but file does not exist. demo_02 will fail until you point to a pipeline JSONL.";
+                warns(end+1) = "cfg.input.pipelineJsonl is set but file does not exist. Ch_02 will fail until you point to a pipeline JSONL.";
                 recs(end+1)  = "Set cfg.input.pipelineJsonl to a pipeline output JSONL (works JSONL).";
             end
         else
-            recs(end+1) = "For demo_02: set cfg.input.pipelineJsonl to a pipeline output JSONL (works JSONL).";
+            recs(end+1) = "For Chapter 02: set cfg.input.pipelineJsonl to a pipeline output JSONL (works JSONL).";
         end
     else
-        recs(end+1) = "For demo_02: add cfg.input.pipelineJsonl in topicmap.setup() (already supported) and set it to a pipeline JSONL.";
+        recs(end+1) = "For Chapter 02: add cfg.input.pipelineJsonl in topicmap.setup() (already supported) and set it to a pipeline JSONL.";
     end
 
     % ---------- Populate cfg.env ----------
     cfg.env = struct();
     % Doctor-style summary
     cfg.env.requiredOk  = true;  % if we reached here, required checks passed
-    cfg.env.optionalOk  = true;  % may be flipped below
     cfg.env.okMinimal   = true;  % backward-compatible flag
 
     cfg.env.hasStatsML  = hasStatsML;
@@ -269,6 +279,7 @@ function cfg = env_check(cfg)
 
     cfg.env.hasGPU      = hasGPU;
     cfg.env.hasUMAP     = hasUMAP;
+    cfg.env.hasTSNE     = hasTSNE;
     cfg.env.hasHDBSCAN  = hasHDBSCAN;
     cfg.env.hasDL       = hasDL;
     cfg.env.hasTextEmbed = hasTextEmbed;
@@ -284,17 +295,31 @@ function cfg = env_check(cfg)
 
     cfg.env.messages = msgs;
     cfg.env.warnings = warns;
-    cfg.env.recommendations = unique(recs);
+    cfg.env.recommendations = unique(recs, 'stable');
 
-    % optionalOk (legacy): keep behavior for demo_01 "recommended experience"
-    cfg.env.optionalOk = cfg.env.hasSampleWorks && (cfg.env.hasSampleEmbed || cfg.env.hasBERT);
-    % new: optional readiness by demo
-    cfg.env.optionalOk_demo01 = cfg.env.optionalOk;
-    % demo_02 (current phase): JSONL -> text is doable without BERT
-    cfg.env.optionalOk_demo02 = cfg.env.hasPipelineJsonl || cfg.env.hasPipelineJsonlPath;
-    % demo_03 (standard embeddings): require Text Analytics + documentEmbedding + MiniLM-L6
-    cfg.env.optionalOk_demo03 = cfg.env.hasDocEmb && cfg.env.hasMiniLM_L6 && cfg.env.hasTextEmbed;
+    % optionalOk (legacy): Ch_01 "recommended experience"
+    % Prefer concrete readiness (sample embeddings OR MiniLM embedding stack), not "bert" (future/optional).
+    cfg.env.optionalOk = cfg.env.hasSampleWorks && (cfg.env.hasSampleEmbed || cfg.env.hasTextEmbed);
+    % new: optional readiness by chapter (canonical fields)
+    cfg.env.optionalOk_Ch01 = cfg.env.optionalOk;
+    % Ch_02: JSONL -> text baseline is doable without embeddings
+    cfg.env.optionalOk_Ch02 = cfg.env.hasPipelineJsonl || cfg.env.hasPipelineJsonlPath;
+    % Ch_03: standard embeddings require documentEmbedding + usable MiniLM embedding stack
+    cfg.env.optionalOk_Ch03 = cfg.env.hasDocEmb && cfg.env.hasTextEmbed;
+    % Ch_04: optional (depends on HDBSCAN availability)
+    % Note: Ch_04 can be designed to run without HDBSCAN in the future,
+    % but the current demo_04 expects HDBSCAN.
+    cfg.env.optionalOk_Ch04 = cfg.env.hasHDBSCAN;
+    % Ch_05: must run even if HDBSCAN is missing (k-means fallback),
+    % but it needs at least one 2D layout method for the parallel view.
+    cfg.env.optionalOk_Ch05 = cfg.env.hasStatsML && (cfg.env.hasUMAP || cfg.env.hasTSNE);
 
+    % backward compatibility (legacy field names)
+    cfg.env.optionalOk_demo01 = cfg.env.optionalOk_Ch01;
+    cfg.env.optionalOk_demo02 = cfg.env.optionalOk_Ch02;
+    cfg.env.optionalOk_demo03 = cfg.env.optionalOk_Ch03;
+    cfg.env.optionalOk_demo04 = cfg.env.optionalOk_Ch04;
+    cfg.env.optionalOk_demo05 = cfg.env.optionalOk_Ch05;
     % Print warnings in a concise way (do not spam).
     if ~isempty(warns)
         fprintf("[topicmap.env_check] WARN (%d):\n", numel(warns));
@@ -309,9 +334,11 @@ function cfg = env_check(cfg)
         end
     else
         fprintf("[topicmap.env_check] OK: required checks passed.\n");
-        fprintf("  demo_02 ready: %d\n", cfg.env.optionalOk_demo02);
-        fprintf("  demo_03 ready: %d\n", cfg.env.optionalOk_demo03);
-        fprintf("  demo_01 sample-ready (legacy optionalOk): %d\n", cfg.env.optionalOk);
+        fprintf("  Chapter 01 ready: %d\n", cfg.env.optionalOk_Ch01);
+        fprintf("  Chapter 02 ready: %d\n", cfg.env.optionalOk_Ch02);
+        fprintf("  Chapter 03 ready: %d\n", cfg.env.optionalOk_Ch03);
+        fprintf("  Chapter 04 ready: %d\n", cfg.env.optionalOk_Ch04);
+        fprintf("  Chapter 05 ready: %d\n", cfg.env.optionalOk_Ch05);
     end
 
     % ---------- nested helper ----------
