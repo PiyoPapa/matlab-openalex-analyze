@@ -46,9 +46,9 @@ function cfg = setup(varargin)
     % ---------------------------
     % Inputs / text policy (topic map)
     % ---------------------------
-    % demo_02 will start from pipeline JSONL (not normalize CSV).
+    % Ch_02 will start from pipeline JSONL (not normalize CSV).
     cfg.input = struct();
-    cfg.input.pipelineJsonl = "";  % user sets this (or demo_02 sets)
+    cfg.input.pipelineJsonl = "";  % user sets this (or Ch_02 sets)
 
     % Text policy for embeddings
     cfg.text = struct();
@@ -56,13 +56,13 @@ function cfg = setup(varargin)
     cfg.text.maxChars = 6000;             % safety cap per document
 
     % ---------------------------
-    % Sample defaults (demo_01)
+    % Sample defaults (Ch_01)
     % ---------------------------
     cfg.sample = struct();
     % Prefer standard JSONL sample (pipeline output format)
-    cfg.sample.worksJsonl = "";      % recommended for demo_01
-    cfg.sample.worksCsv   = "";      % optional for demo_01
-    cfg.sample.embeddingMat = "";    % optional for demo_01
+    cfg.sample.worksJsonl = "";      % recommended for Ch_01
+    cfg.sample.worksCsv   = "";      % optional for Ch_01
+    cfg.sample.embeddingMat = "";    % optional for Ch_01
 
     % Auto-detect a sample JSONL under repoRoot/data_sample (if present)
     sampleDir = fullfile(repoRoot, "data_sample");
