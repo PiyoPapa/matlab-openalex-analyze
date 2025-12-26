@@ -29,7 +29,7 @@ function [text, meta] = extract_text(W, policy, maxChars)
         if isfield(wi,"id"); meta.work_id(i) = string(wi.id); end
 
         % title
-        if isfield(wi,"title"); meta.title(i) = string(wi.title); end
+        if isfield(wi,"title"); meta.title(i) = toScalarString_(wi.title); end
 
         % year (optional)
         if isfield(wi,"publication_year"); meta.year(i) = double(wi.publication_year); end
@@ -59,4 +59,30 @@ function [text, meta] = extract_text(W, policy, maxChars)
         end
         text(i) = s;
     end
+end
+
+function s = toScalarString_(x)
+% Force any "title-like" input into a single string scalar.
+% Prevents "Left and right sides have a different number of elements" on assignment.
+if isempty(x)
+    s = "";
+    return;
+end
+try
+    sx = string(x);
+catch
+    s = "";
+    return;
+end
+if isscalar(sx)
+    s = sx;
+    return;
+end
+sx = sx(:);
+sx = sx(strlength(sx) > 0);
+if isempty(sx)
+    s = "";
+else
+    s = strjoin(sx, " ");
+end
 end
