@@ -1,4 +1,4 @@
-# # matlab-openalex-analyze
+# matlab-openalex-analyze
 
 Experimental MATLAB workflows for **diagnostic topic analysis** on OpenAlex data.
 This repository focuses on *making intermediate structure visible*—from text
@@ -9,22 +9,20 @@ It is intended for controlled, time-bounded exploration, not for production use
 or comprehensive research analytics.
  
 ---
+## Who this repository is for
 
-## Repository position in the OpenAlex–MATLAB workflow
+Professionals who are **not full-time text analytics developers**, but who need to:
+
+- inspect whether OpenAlex-derived text data is analytically usable
+- validate structure and representation *before* interpretation
+- do so reproducibly within MATLAB
+
+This repository is **not** for:
+- general-purpose visualization frameworks
+- production-grade or automated topic modeling
+- data acquisition or fixed-schema CSV normalization
+
 ## Overview
-
-- **Who this is for**  
-  Professionals who are *not* full-time text-analytics developers, but who need to
-  inspect research-topic structure reproducibly within MATLAB.
-
-- **What problem this addresses**  
-  Understanding whether OpenAlex-derived text data is *analytically usable* before
-  committing to deeper modeling or interpretation.
-
-- **What layer this represents**  
-  The *analysis and diagnostic* layer, operating directly on pipeline-standard JSONL.
-
-## What this repository provides (and what it doesn't)
 
 **Provides**
 
@@ -52,27 +50,20 @@ This repository is part of a three-stage workflow for analyzing OpenAlex data in
 3. **Analysis / topic mapping** — diagnostics and semantic maps (**this repository**)
 
 ## Scope and design principles
-This repository is intentionally **experimental and narrow in scope**.
-Its design follows a small set of constraints shared across the OpenAlex–MATLAB workflow:
+### In scope
+- diagnostic, stepwise exploration on pipeline-standard JSONL
+- preserving intermediate artifacts (CSV/MAT/figures) for inspection and comparison
 
-- **Pipeline-first inputs**  
-  Only OpenAlex *standard JSONL* is treated as canonical input.
-  Schema stabilization is delegated upstream.
+### Out of scope
+- optimized or production-grade topic models
+- authoritative topic interpretation or decision-making outputs
+- end-to-end ingestion (handled by pipeline) or fixed-schema CSV normalization (optional via normalize)
 
-- **Stepwise diagnostics**  
-  Each stage answers a limited question (e.g., text quality, structure presence,
-  semantic continuity) before moving forward.
-
-- **Reproducibility over polish**  
-  Intermediate states are preserved to support comparison, failure analysis,
-  and iterative refinement.
-
-Advanced analytics, large-scale optimization, and domain-specific interpretation
-are explicitly out of scope and expected to live in downstream repositories.
+This repository prioritizes reproducibility, transparency, and explicit configuration.
 
 ---
 
-## Repository structure
+## Repository layout
 
 The repository is organized to mirror the **analysis lifecycle**:
 input ingestion → text reconstruction → representation → diagnostics.
@@ -99,7 +90,7 @@ The structure is intentionally shallow to keep execution paths visible.
 The src/+topicmap functions are not a general-purpose API.
 They exist to support the demos and to make data transformations explicit.
 
-## Input / Output contract
+## Inputs / Outputs
 
 ### Input (Required)
 
@@ -127,193 +118,30 @@ Depending on the demo, these include:
 All outputs are written to run-specific directories to
 support comparison and reproducibility.
 
-## Demos / diagnostic stages
+## Examples / demos
 The demos are ordered as progressive diagnostic stages.
 Each demo assumes that the previous stage has validated its inputs.
 
 ### Ch_01_CPU_Minimal_JSONL_to_Map.mlx  
-**Purpose:** pipeline sanity check
-
-- Runs from **sample standard JSONL** (CSV is accepted only as a legacy fallback)
-- If precomputed embeddings are available, uses them; otherwise falls back to **TF-IDF**
-- Confirms: ingestion → vectorization → (PCA) → k-means → artifacts saved under `runDir`
-
-This demo exists solely to confirm that the execution environment
-and data path are functional.
+**Purpose:** environment and pipeline sanity check  
+**Outputs:** baseline PCA map, k-means clusters, diagnostic artifacts
 
 ### Ch_02_From_Pipeline_JSONL.mlx  (Core Entry Point)
-
-**Purpose:** baseline structure and text-quality diagnostics
-
-**What it does**
-
-1. Reads OpenAlex standard JSONL  
-2. Reconstructs text (`title + abstract`)
-3. Applies conservative token cleanup
-4. Builds **TF-IDF baseline embedding**
-5. Generates a **2D PCA map + k-means clustering**
-6. Exports diagnostic CSVs
-
-**What it intentionally does NOT do**
-
-- No BERT embeddings
-- No semantic claims beyond baseline structure
-- No aggressive text normalization
-
-**Outputs**
-
-- `demo02_cluster_terms.csv`  
-  Top TF-IDF terms per cluster (with `min_df` filtering)
-
-- `demo02_cluster_representatives.csv`  
-  Representative papers closest to each cluster centroid
-
-- `demo02_text_anomalies.csv`  
-  Short / missing / structurally suspicious texts
-
-These outputs are meant for:
-- checking text reconstruction quality
-- identifying cleaning issues
-- validating cluster stability before semantic modeling
-
----
+**Purpose:** baseline text-quality and structural diagnostics  
+**Outputs:** TF-IDF baseline clusters, reconstructed text tables, anomaly reports
 
 ### Ch_03_Semantic_Topic_Map.mlx  (Semantic Baseline)
-
-**Purpose:** semantic topic mapping using Transformer embeddings
-
-**What this demo does**
-
-1. Reads OpenAlex standard JSONL (same input contract as Ch_02)
-2. Reconstructs text (`title + abstract`) and applies the same conservative cleaning
-3. Computes Transformer embeddings using  
-   `documentEmbedding(Model="all-MiniLM-L6-v2")`
-4. Applies dimensionality reduction: **PCA(50) → UMAP(2)**
-5. Performs clustering with **k-means (K=12)** as a stable semantic baseline
-6. Extracts **representative papers per cluster** using cosine distance
-   to the centroid in embedding space
-7. Exports figures and CSV artifacts for reproducibility
-
-**What this demo intentionally does NOT do**
-
-- No multilingual processing
-- No hierarchical or child clusters
-- No HDBSCAN
-- No manual semantic labeling or interpretation
-
-**Outputs**
-
-- `demo03_embeddings.mat`  
-  Raw embedding matrix and aligned metadata
-
-- `demo03_umap2d.csv`  
-  2D UMAP coordinates with cluster assignment
-
-- `demo03_cluster_representatives.csv`  
-  Representative papers per cluster (work_id, year, title, cosine distance)
-
-- `demo03_map.pdf`, `demo03_map.png`  
-  Publication-style semantic topic map
-
-> demo_03 assumes demo_02 has already stabilized text quality and structure.  
-> It serves as a **semantic baseline**, not an optimized or final analytics endpoint.
-
----
+**Purpose:** semantic representation baseline using Transformer embeddings  
+**Outputs:** embedding state, UMAP projection, representative papers per cluster
 
 ### Ch_04_HDBSCAN_Child_Clusters.mlx  (Density Diagnostic)
-
-**Purpose:**  
-Density-based diagnostic to test whether the semantic space contains
-statistically separable topic regions.
-
-**What this demo does**
-
-1. Reuses Transformer embeddings generated in `demo_03`
-2. Applies PCA-reduced embedding space for clustering
-3. Runs **HDBSCAN** to detect density-separated parent clusters
-4. Optionally attempts **child clustering** within each parent cluster
-5. Reports:
-   - number of detected clusters
-   - noise ratio
-   - stability under parameter sweeps
-
-**Key interpretation**
-
-- If HDBSCAN returns **a single cluster with high noise**,
-  the space should be interpreted as **continuous rather than discretely clustered**
-- This outcome is **diagnostic**, not a failure
-
-**What this demo intentionally does NOT do**
-
-- No forced partitioning
-- No semantic labeling
-- No assumption that clusters must exist
-
-**Outputs**
-
-- `demo04_parent_clusters.csv`  
-  Parent cluster labels and noise assignment
-
-- `demo04_parent_representatives.csv`  
-  Representative papers per detected parent cluster (if applicable)
-
-- `demo04_parent_stability.csv`  
-  Parameter sweep summary (stability diagnostics)
-
-- `demo04_parent_state.mat`, `demo04_child_state.mat`  
-  Saved intermediate states for reproducibility
-
-> demo_04 exists to answer a single question:  
-> **"Does the data *want* to be clustered?"**
-
----
+**Purpose:** test whether semantic space supports density-separated structure  
+**Outputs:** parent cluster labels, noise ratio, stability diagnostics
 
 ### Ch_05_explicit-purpose.mlx  (Diagnostic Comparison)
+**Purpose:** contrast density-detected vs user-imposed structure  
+**Outputs:** parallel HDBSCAN / k-means diagnostics and comparison figures
 
-**Purpose:**  
-Side-by-side comparison between:
-
-- **density-detected structure** (HDBSCAN)
-- **user-imposed summarization** (k-means)
-
-on the **same semantic embedding space**.
-
-**What this demo does**
-
-1. Reuses embeddings and UMAP coordinates from `demo_03`
-2. Runs HDBSCAN as a **structure detector**
-3. Runs k-means with a small K sweep as a **constructive summarization**
-4. Reports diagnostic metrics (e.g. mean silhouette)
-5. Visualizes both results on the same 2D UMAP map
-
-**Key interpretation**
-
-- A visually separable k-means partition does **not** imply
-  statistically stable topic separation
-- HDBSCAN returning a single cluster indicates
-  a **continuous semantic landscape**
-
-**Outputs**
-
-- `demo05_hdbscan.csv`  
-  Density-based diagnostic result
-
-- `demo05_kmeans_silhouette.csv`  
-  Silhouette scores across tested K values
-
-- `demo05_kmeans_K*.csv`  
-  Cluster assignments for the selected K (e.g., `demo05_kmeans_K9.csv`)
-
-- `demo05_parallel_hdbscan_vs_kmeans_*.png`  
-  Side-by-side visualization
-
-- `demo05_step1_state.mat`, `demo05_step2_state.mat`  
-  Saved intermediate states for reproducibility
-
-> demo_05 is explicitly **diagnostic**, not prescriptive.  
-> It is designed to prevent over-interpretation of visually pleasing clusters.
-
----
 
 ## Token Cleaning Policy (Ch_02)
 
@@ -367,45 +195,32 @@ It is **not intended** for:
 
 ## Relationship to Other Repositories
 
-This repository is designed to operate **within a deliberately split workflow**.
-Each repository enforces a single responsibility.
+- **Acquisition:**  
+  [`matlab-openalex-pipeline`](https://github.com/PiyoPapa/matlab-openalex-pipeline)
 
-### matlab-openalex-pipeline  
-Responsible for OpenAlex data acquisition and API interaction.
+- **Optional normalization:**  
+  [`matlab-openalex-normalize`](https://github.com/PiyoPapa/matlab-openalex-normalize)
 
-### matlab-openalex-normalize  
-Optional schema stabilization and CSV normalization.
-
-This repository:
-
-- consumes **pipeline-standard JSONL directly**
-- does **not** depend on normalized CSVs
-- assumes upstream data integrity, not downstream interpretation
-
-Any extension beyond diagnostic topic mapping
-should be implemented as a **separate downstream repository**.
+This repository consumes **pipeline-standard JSONL directly** and focuses only on
+diagnostic topic analysis.
 
 ---
+## When to stop here / when to move on
 
-## Disclaimer
-The author is an employee of MathWorks Japan.
-This repository is a personal experimental project developed independently
-and is not part of any MathWorks product, service, or official content.
+- You can stop here if you only need exploratory diagnostics and intermediate artifacts.
+- You should move upstream if you do not already have pipeline-standard JSONL:
+  - acquisition: `matlab-openalex-pipeline`
+  - optional normalization: `matlab-openalex-normalize`
 
-MathWorks does not review, endorse, support, or maintain this repository.
+## Disclaimer 
+The author is an employee of MathWorks Japan. 
+This repository is a personal experimental project developed independently and is not part of any MathWorks product, service, or official content. 
+MathWorks does not review, endorse, support, or maintain this repository. 
 All opinions and implementations are solely those of the author.
 
-## License
-MIT License. See the LICENSE file for details.
+## License 
+MIT License. See the LICENSE file for details. 
 
-## A note for contributors
-This repository prioritizes:
-- clarity over abstraction
-- reproducibility over convenience
-- explicit configuration over magic defaults
-
-## Contact
-This project is maintained on a best-effort basis and does not provide official support.
-
-For bug reports or feature requests, please use GitHub Issues.
-If you plan to extend it, please preserve the principles stated above.
+## Notes
+This project is maintained on a best-effort basis.
+For bug reports or questions, please use GitHub Issues.
