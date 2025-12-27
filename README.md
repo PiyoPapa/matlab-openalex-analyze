@@ -97,7 +97,9 @@ They exist to support the demos and to make data transformations explicit.
 
 - Format: OpenAlex standard JSONL (one work per line)
 - Source: output of matlab-openalex-pipeline
-- Assumptions:
+- Assumptions: this repository does not bundle large JSONL inputs.
+  Keep sample inputs small (≤1000 works). Larger inputs must be generated or
+  provided by the user (e.g., via matlab-openalex-pipeline).
 
 Example:
 ```text

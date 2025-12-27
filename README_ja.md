@@ -106,7 +106,10 @@ src/+topicmap 配下の関数群は、汎用 API ではありません。
 
 - OpenAlex 標準 JSONL（1 行 1 work）
 - 入力元：matlab-openalex-pipeline の出力
-- サンプルファイルはローカル診断用の最小構成です
+- 本リポジトリには **小規模サンプルのみ**を同梱します
+  （目安：≤1000 works）
+- それより大きな JSONL 入力は同梱せず、
+  利用者が pipeline 等で生成・取得することを前提とします
 
 例:
 ```text
