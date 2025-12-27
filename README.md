@@ -10,6 +10,7 @@ The purpose is to validate *whether* structure appears, not to optimize models
 or assert semantic correctness.
 
 ![Diagnostic comparison of clustering assumptions](figs/HDBSCAN_kmeans.png)
+
 *Diagnostic example: the same UMAP projection colored by different clustering assumptions.
 Left: density-based grouping (HDBSCAN) highlighting local concentration and noise.
 Right: fixed-partition grouping (k-means) forcing a global split.
