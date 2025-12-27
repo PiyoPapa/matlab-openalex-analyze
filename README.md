@@ -1,65 +1,66 @@
 # matlab-openalex-analyze
 
-Experimental MATLAB workflows for **diagnostic topic analysis** on OpenAlex data.
-This repository focuses on *making intermediate structure visible*—from text
-reconstruction to baseline and semantic mappings—rather than producing final or
-optimized analytical results.
+**Language:** English | [日本語](README_ja.md)
 
-It is intended for controlled, time-bounded exploration, not for production use
-or comprehensive research analytics.
+Experimental MATLAB workflows for **diagnostic topic-mapping workflows** on OpenAlex data.
+This repository provides stepwise, reproducible workflows to make intermediate
+structure visible (text reconstruction, representations, and diagnostic maps).
+
+The purpose is to validate *whether* structure appears, not to optimize models
+or assert semantic correctness.
  
 ---
-## Who this repository is for
-
-Professionals who are **not full-time text analytics developers**, but who need to:
-
-- inspect whether OpenAlex-derived text data is analytically usable
-- validate structure and representation *before* interpretation
-- do so reproducibly within MATLAB
-
-This repository is **not** for:
-- general-purpose visualization frameworks
-- production-grade or automated topic modeling
-- data acquisition or fixed-schema CSV normalization
-
 ## Overview
 
-**Provides**
+**Purpose**
+This repository provides diagnostic workflows for inspecting intermediate
+structure in OpenAlex-derived text data within MATLAB.
 
-- Text reconstruction from OpenAlex standard JSONL
-- Baseline structure inspection (TF-IDF, PCA, k-means)
-- Semantic embeddings and maps for *diagnostic comparison*
-- Explicit intermediate artifacts (CSV, MAT, figures) for inspection
+It focuses on *workflow mechanics and intermediate artifacts*, not on producing
+validated topics or decision-ready outputs.
 
-**Does NOT provide**
+**Usage boundary**
 
-- A general-purpose visualization framework
-- Optimized or production-grade topic models
-- End-to-end OpenAlex ingestion or CSV normalization
-- Authoritative or finalized topic interpretations
+This repository is intended for **diagnostic and exploratory use only**, including:
+
+- inspecting whether OpenAlex-derived text is analytically usable
+- comparing baseline vs semantic representations *before interpretation*
+- educational or internal demonstrations of topic-mapping mechanics
+- controlled experiments on clustering assumptions and stability
+
+It is **not intended** for:
+
+- decision-making without downstream validation
+- automated or large-scale production analysis
+- authoritative topic labeling or trend reporting
+
+Outputs produced by this repository are diagnostic artifacts.
+They are intended for inspection and comparison, not as analytical conclusions,
+validated topics, or decision-support results.
 
 ## Repository position in the OpenAlex–MATLAB workflow
-This repository is part of a three-stage workflow for analyzing OpenAlex data in MATLAB.
 
-1. **Acquisition** — fetch OpenAlex Works  
-   → [`matlab-openalex-pipeline`](https://github.com/PiyoPapa/matlab-openalex-pipeline)
+This repository occupies the **analysis / topic-mapping (diagnostic)** stage
+within a three-step OpenAlex–MATLAB workflow:
 
-2. **Normalization** — fixed-schema, versioned CSVs  
-   → [`matlab-openalex-normalize`](https://github.com/PiyoPapa/matlab-openalex-normalize)
+1. Acquisition — fetch OpenAlex Works  
+   → `matlab-openalex-pipeline`
+2. Normalization — fixed-schema, versioned CSVs (optional)  
+   → `matlab-openalex-normalize`
+3. Analysis / topic mapping — diagnostic workflows (**this repository**)
 
-3. **Analysis / topic mapping** — diagnostics and semantic maps (**this repository**)
+## Who this repository is for / not for
 
-## Scope and design principles
-### In scope
-- diagnostic, stepwise exploration on pipeline-standard JSONL
-- preserving intermediate artifacts (CSV/MAT/figures) for inspection and comparison
+**For**
 
-### Out of scope
-- optimized or production-grade topic models
-- authoritative topic interpretation or decision-making outputs
-- end-to-end ingestion (handled by pipeline) or fixed-schema CSV normalization (optional via normalize)
+Users who need to inspect and validate intermediate structure in OpenAlex-derived
+text data using reproducible MATLAB workflows, without assuming prior investment
+in full-scale text analytics systems.
 
-This repository prioritizes reproducibility, transparency, and explicit configuration.
+**Not for**
+
+Users seeking production-grade topic models, automated analytics pipelines,
+or authoritative semantic interpretations.
 
 ---
 
@@ -118,30 +119,14 @@ Depending on the demo, these include:
 All outputs are written to run-specific directories to
 support comparison and reproducibility.
 
-## Examples / demos
-The demos are ordered as progressive diagnostic stages.
-Each demo assumes that the previous stage has validated its inputs.
+## Chapter map (examples/)
 
-### Ch_01_CPU_Minimal_JSONL_to_Map.mlx  
-**Purpose:** environment and pipeline sanity check  
-**Outputs:** baseline PCA map, k-means clusters, diagnostic artifacts
-
-### Ch_02_From_Pipeline_JSONL.mlx  (Core Entry Point)
-**Purpose:** baseline text-quality and structural diagnostics  
-**Outputs:** TF-IDF baseline clusters, reconstructed text tables, anomaly reports
-
-### Ch_03_Semantic_Topic_Map.mlx  (Semantic Baseline)
-**Purpose:** semantic representation baseline using Transformer embeddings  
-**Outputs:** embedding state, UMAP projection, representative papers per cluster
-
-### Ch_04_HDBSCAN_Child_Clusters.mlx  (Density Diagnostic)
-**Purpose:** test whether semantic space supports density-separated structure  
-**Outputs:** parent cluster labels, noise ratio, stability diagnostics
-
-### Ch_05_explicit-purpose.mlx  (Diagnostic Comparison)
-**Purpose:** contrast density-detected vs user-imposed structure  
-**Outputs:** parallel HDBSCAN / k-means diagnostics and comparison figures
-
+- **Ch_00** — Repository setup and environment diagnostics  
+- **Ch_01** — CPU-minimal end-to-end diagnostic smoke test  
+- **Ch_02** — TF-IDF–based baseline structure inspection  
+- **Ch_03** — Semantic embedding–based diagnostic topic map  
+- **Ch_04** — Density-based (HDBSCAN) structural inspection  
+- **Ch_05** — Interpretation viewpoints across diagnostic clusterings
 
 ## Token Cleaning Policy (Ch_02)
 
@@ -173,24 +158,6 @@ cfg = topicmap.env_check(cfg);
 ```
 to verify availability.
 > env_check reports global readiness. Demo-specific prerequisites are validated inside each demo script.
----
-
-## Intended Use
-
-This repository is intended for **diagnostic and exploratory use only**, including:
-
-- inspecting whether OpenAlex-derived text is analytically usable
-- comparing baseline vs semantic representations *before interpretation*
-- educational or internal demonstrations of topic-mapping mechanics
-- controlled experiments on clustering assumptions and stability
-
-It is **not intended** for:
-
-- decision-making without downstream validation
-- automated or large-scale production analysis
-- authoritative topic labeling or trend reporting
-- replacement of domain expertise or commercial analytics tools
- 
 ---
 
 ## Relationship to Other Repositories
