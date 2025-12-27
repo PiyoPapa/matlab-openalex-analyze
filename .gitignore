@@ -48,3 +48,7 @@ runs/
 *.bat text eol=crlf
 *.ps1 text eol=crlf
 examples/dev/
+
+# Large local OpenAlex inputs (do not commit)
+data_sample/openalex_MATLAB_cursor_en_10000.standard.jsonl
+data_sample/openalex_MATLAB_cursor_en_10000.mat
