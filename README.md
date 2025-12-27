@@ -44,9 +44,9 @@ This repository occupies the **analysis / topic-mapping (diagnostic)** stage
 within a three-step OpenAlex–MATLAB workflow:
 
 1. Acquisition — fetch OpenAlex Works  
-   → `matlab-openalex-pipeline`
+   → [`matlab-openalex-pipeline`](../matlab-openalex-pipeline)
 2. Normalization — fixed-schema, versioned CSVs (optional)  
-   → `matlab-openalex-normalize`
+   → [`matlab-openalex-normalize`](../matlab-openalex-normalize)
 3. Analysis / topic mapping — diagnostic workflows (**this repository**)
 
 ## Who this repository is for / not for

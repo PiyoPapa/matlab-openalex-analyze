@@ -49,9 +49,9 @@ OpenAlex データを対象とした **診断的トピックマッピング・�
 全体は以下の 3 段階で構成されます。
 
 1. 取得（Acquisition） — OpenAlex Works の取得  
-   → matlab-openalex-pipeline  
+   → [`matlab-openalex-pipeline`](../matlab-openalex-pipeline) 
 2. 正規化（Normalization） — 固定スキーマ CSV の生成（任意）  
-   → matlab-openalex-normalize  
+   → [`matlab-openalex-normalize`](../matlab-openalex-normalize)
 3. 分析／トピックマッピング — 診断的ワークフロー（本リポジトリ）
 
 ---
